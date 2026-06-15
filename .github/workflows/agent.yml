@@ -1,0 +1,22 @@
+name: daily-task-agent
+
+on:
+  schedule:
+    - cron: '0 11 * * *'   # ~6:00 AM Central (11:00 UTC)
+  workflow_dispatch: {}     # allow manual runs from the Actions tab
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: cd agent && npm ci
+      - run: cd agent && node run.js
+        env:
+          ANTHROPIC_API_KEY:    ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          OWNER_USER_ID:        ${{ secrets.OWNER_USER_ID }}

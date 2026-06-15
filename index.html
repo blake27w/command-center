@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F2EDE1" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Command Center" />
+<title>Command Center</title>
+
+<!-- Fonts: Fraunces (display), Archivo (UI), JetBrains Mono (counts/dates) -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<style>
+:root{
+  --paper:#F2EDE1; --surface:#FBF8F0; --ink:#211D17; --khaki:#8C846F;
+  --line:#DAD2BF; --amber:#C0792A; --gold:#B0863A; --oxblood:#80332E; --green:#4F6B3E;
+  --shadow: 0 1px 0 rgba(33,29,23,.04), 0 8px 24px rgba(33,29,23,.06);
+  --r: 10px;
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+body{
+  background:var(--paper); color:var(--ink);
+  font-family:'Archivo', system-ui, sans-serif; font-size:15px; line-height:1.45;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+}
+.mono{ font-family:'JetBrains Mono', ui-monospace, monospace; }
+button{ font-family:inherit; cursor:pointer; }
+:focus-visible{ outline:2.5px solid var(--amber); outline-offset:2px; border-radius:4px; }
+
+/* ---------- layout ---------- */
+.app{ max-width:760px; margin:0 auto; min-height:100dvh; display:flex; flex-direction:column;
+  padding-bottom:96px; /* room for quick-add bar */ }
+header.top{
+  position:sticky; top:0; z-index:20; background:var(--paper);
+  border-bottom:1px solid var(--line); padding:16px 18px 0;
+}
+.brand{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
+.brand h1{ font-family:'Fraunces',serif; font-weight:600; font-size:26px; margin:0; letter-spacing:-.01em; }
+.brand .who{ font-size:12px; color:var(--khaki); }
+.brand .who button{ background:none; border:none; color:var(--khaki); text-decoration:underline; padding:0 0 0 8px; font-size:12px; }
+
+/* tabs */
+nav.tabs{ display:flex; gap:2px; margin-top:12px; overflow-x:auto; scrollbar-width:none; }
+nav.tabs::-webkit-scrollbar{ display:none; }
+nav.tabs button{
+  border:none; background:none; padding:10px 12px 12px; font-size:14px; font-weight:600;
+  color:var(--khaki); border-bottom:2.5px solid transparent; white-space:nowrap;
+}
+nav.tabs button.active{ color:var(--ink); border-bottom-color:var(--oxblood); }
+.badge{
+  display:inline-block; min-width:18px; padding:1px 5px; margin-left:6px; border-radius:9px;
+  background:var(--oxblood); color:#fff; font-size:11px; font-weight:600; text-align:center;
+  font-family:'JetBrains Mono',monospace; vertical-align:middle;
+}
+.badge.zero{ background:var(--line); color:var(--khaki); }
+
+main{ padding:14px 16px 0; flex:1; }
+
+/* ---------- task card ---------- */
+.group-h{ font-family:'Fraunces',serif; font-weight:600; font-size:15px; margin:18px 2px 8px;
+  display:flex; align-items:center; gap:8px; color:var(--ink); }
+.group-h .dot{ width:10px; height:10px; border-radius:3px; display:inline-block; }
+.group-h .count{ font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--khaki); font-weight:500; }
+
+.card{
+  background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--khaki);
+  border-radius:var(--r); padding:11px 12px 11px 13px; margin:8px 0; box-shadow:var(--shadow);
+  display:flex; align-items:flex-start; gap:11px; transition:transform .12s ease, box-shadow .12s ease;
+}
+.card:hover{ box-shadow:0 2px 0 rgba(33,29,23,.05), 0 12px 28px rgba(33,29,23,.09); }
+.check{
+  flex:0 0 auto; width:20px; height:20px; margin-top:1px; border-radius:6px; border:1.5px solid var(--line);
+  background:var(--paper); display:grid; place-items:center; color:transparent; font-size:13px; padding:0;
+}
+.card.done .check{ background:var(--green); border-color:var(--green); color:#fff; }
+.card.done .body .t{ text-decoration:line-through; color:var(--khaki); }
+.card .body{ flex:1; min-width:0; }
+.card .t{ font-weight:600; font-size:15px; word-wrap:break-word; }
+.card .t .ven{ font-size:11px; font-weight:600; color:var(--khaki); text-transform:uppercase; letter-spacing:.04em; margin-right:7px; }
+.card .note{ color:var(--khaki); font-size:13px; margin-top:2px; word-wrap:break-word; white-space:pre-wrap; }
+.card .meta{ display:flex; flex-wrap:wrap; gap:6px; margin-top:7px; align-items:center; }
+.pill{ font-size:11px; font-weight:600; padding:2px 7px; border-radius:20px; border:1px solid var(--line);
+  color:var(--khaki); background:var(--paper); font-family:'JetBrains Mono',monospace; }
+.pill.high{ color:#fff; background:var(--oxblood); border-color:var(--oxblood); }
+.pill.med{ color:var(--ink); background:#F3E7CF; border-color:#E7D5AE; }
+.pill.low{ color:var(--khaki); }
+.pill.doing{ color:#fff; background:var(--gold); border-color:var(--gold); }
+.pill.due{ color:var(--oxblood); border-color:#E0C2BD; background:#F7E9E6; }
+.pill.due.soon{ background:var(--oxblood); color:#fff; }
+.pill.src{ font-style:italic; }
+.card .edit{ flex:0 0 auto; align-self:center; background:none; border:none; color:var(--khaki); font-size:18px; padding:4px 6px; border-radius:8px; }
+.card .edit:hover{ background:var(--paper); color:var(--ink); }
+
+/* inbox card actions */
+.inbox-actions{ display:flex; gap:8px; margin-top:9px; }
+.btn-sm{ font-size:13px; font-weight:600; padding:6px 12px; border-radius:8px; border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.btn-sm.accept{ background:var(--green); border-color:var(--green); color:#fff; }
+.btn-sm.dismiss{ background:var(--paper); color:var(--oxblood); border-color:#E0C2BD; }
+
+.empty{ text-align:center; color:var(--khaki); padding:54px 20px; }
+.empty .big{ font-family:'Fraunces',serif; font-size:19px; color:var(--ink); margin-bottom:4px; }
+
+/* ---------- quick-add bar ---------- */
+.quickbar{
+  position:fixed; left:0; right:0; bottom:0; z-index:30;
+  background:var(--surface); border-top:1px solid var(--line);
+  padding:10px 14px calc(10px + env(safe-area-inset-bottom)); box-shadow:0 -6px 22px rgba(33,29,23,.07);
+}
+.quickbar .row{ max-width:760px; margin:0 auto; display:flex; gap:8px; align-items:center; }
+.quickbar select{
+  flex:0 0 auto; border:1px solid var(--line); background:var(--paper); color:var(--ink);
+  border-radius:9px; padding:11px 8px; font-size:13px; font-weight:600; max-width:34vw;
+}
+.quickbar input{
+  flex:1; min-width:0; border:1px solid var(--line); background:var(--paper); color:var(--ink);
+  border-radius:9px; padding:12px 12px; font-size:15px;
+}
+.quickbar .add{ flex:0 0 auto; border:none; background:var(--oxblood); color:#fff; font-weight:700;
+  border-radius:9px; padding:12px 16px; font-size:15px; }
+.quickbar .add:disabled{ opacity:.5; }
+.quickbar .tools{ max-width:760px; margin:6px auto 0; display:flex; gap:14px; }
+.quickbar .tools button{ background:none; border:none; color:var(--khaki); font-size:12px; text-decoration:underline; padding:0; }
+
+/* ---------- modal / bottom sheet ---------- */
+.scrim{ position:fixed; inset:0; background:rgba(33,29,23,.4); z-index:40; display:none; }
+.scrim.open{ display:block; }
+.sheet{
+  position:fixed; left:50%; transform:translateX(-50%); bottom:0; z-index:50; width:100%; max-width:560px;
+  background:var(--surface); border:1px solid var(--line); border-bottom:none;
+  border-radius:18px 18px 0 0; padding:18px 18px calc(20px + env(safe-area-inset-bottom));
+  box-shadow:0 -12px 40px rgba(33,29,23,.22); display:none; max-height:90dvh; overflow:auto;
+}
+.sheet.open{ display:block; }
+.sheet h3{ font-family:'Fraunces',serif; font-weight:600; margin:2px 0 14px; font-size:19px; }
+.field{ margin-bottom:13px; }
+.field label{ display:block; font-size:12px; font-weight:600; color:var(--khaki); text-transform:uppercase; letter-spacing:.04em; margin-bottom:5px; }
+.field input, .field textarea, .field select{
+  width:100%; border:1px solid var(--line); background:var(--paper); color:var(--ink);
+  border-radius:9px; padding:11px 12px; font-size:15px; font-family:inherit;
+}
+.field textarea{ resize:vertical; min-height:64px; }
+.seg{ display:flex; gap:6px; flex-wrap:wrap; }
+.seg button{ flex:1; min-width:64px; border:1px solid var(--line); background:var(--paper); color:var(--khaki);
+  border-radius:9px; padding:9px; font-size:13px; font-weight:600; }
+.seg button.on{ background:var(--ink); color:var(--surface); border-color:var(--ink); }
+.sheet .actions{ display:flex; gap:10px; margin-top:18px; }
+.sheet .actions .save{ flex:1; border:none; background:var(--oxblood); color:#fff; font-weight:700; border-radius:10px; padding:13px; font-size:15px; }
+.sheet .actions .del{ border:1px solid #E0C2BD; background:var(--paper); color:var(--oxblood); font-weight:600; border-radius:10px; padding:13px 16px; }
+.hint{ font-size:12px; color:var(--khaki); margin-top:6px; }
+
+/* ---------- sign-in ---------- */
+.signin{ min-height:100dvh; display:grid; place-items:center; padding:24px; }
+.signin .box{ width:100%; max-width:380px; text-align:center; }
+.signin h1{ font-family:'Fraunces',serif; font-weight:600; font-size:34px; margin:0 0 6px; letter-spacing:-.01em; }
+.signin p{ color:var(--khaki); margin:0 0 22px; }
+.signin input{ width:100%; border:1px solid var(--line); background:var(--surface); color:var(--ink);
+  border-radius:10px; padding:14px; font-size:16px; text-align:center; }
+.signin button{ width:100%; margin-top:10px; border:none; background:var(--oxblood); color:#fff; font-weight:700;
+  border-radius:10px; padding:14px; font-size:16px; }
+.signin .msg{ margin-top:14px; font-size:14px; min-height:20px; }
+.signin .msg.ok{ color:var(--green); }
+.signin .msg.err{ color:var(--oxblood); }
+
+.toast{ position:fixed; left:50%; bottom:110px; transform:translateX(-50%) translateY(20px);
+  background:var(--ink); color:var(--surface); padding:10px 16px; border-radius:24px; font-size:14px;
+  z-index:60; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; box-shadow:var(--shadow); }
+.toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+@media (max-width:420px){
+  .brand h1{ font-size:23px; }
+  .quickbar select{ max-width:38vw; }
+}
+@media (prefers-reduced-motion: reduce){
+  *{ transition:none !important; animation:none !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== sign-in (shown when no session) ===== -->
+<div id="signin" class="signin" hidden>
+  <div class="box">
+    <h1>Command Center</h1>
+    <p>One owner. One database. Seven ventures.</p>
+    <form id="signin-form">
+      <input id="email" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" required />
+      <button type="submit" id="send-link">Send magic link</button>
+    </form>
+    <div id="signin-msg" class="msg" role="status" aria-live="polite"></div>
+  </div>
+</div>
+
+<!-- ===== app (shown when signed in) ===== -->
+<div id="app" class="app" hidden>
+  <header class="top">
+    <div class="brand">
+      <h1>Command Center</h1>
+      <div class="who"><span id="who-email" class="mono"></span><button id="signout" type="button">sign out</button></div>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button data-view="focus" class="active" role="tab">Focus</button>
+      <button data-view="project" role="tab">By project</button>
+      <button data-view="all" role="tab">All open</button>
+      <button data-view="inbox" role="tab">Inbox<span id="inbox-badge" class="badge zero">0</span></button>
+    </nav>
+  </header>
+
+  <main id="list" aria-live="polite"></main>
+</div>
+
+<!-- ===== quick-add bar ===== -->
+<div id="quickbar" class="quickbar" hidden>
+  <div class="row">
+    <select id="qa-project" aria-label="Venture"></select>
+    <input id="qa-title" type="text" placeholder="Add a task…" autocomplete="off" />
+    <button class="add" id="qa-add" disabled>Add</button>
+  </div>
+  <div class="tools">
+    <button id="open-claude" type="button">Add from Claude</button>
+    <button id="export" type="button">Export backup</button>
+  </div>
+</div>
+
+<!-- ===== edit sheet ===== -->
+<div id="scrim" class="scrim"></div>
+<div id="sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+  <h3 id="sheet-title">Edit task</h3>
+  <div class="field">
+    <label for="ed-title">Title</label>
+    <input id="ed-title" type="text" />
+  </div>
+  <div class="field">
+    <label for="ed-project">Venture</label>
+    <select id="ed-project"></select>
+  </div>
+  <div class="field">
+    <label>Priority</label>
+    <div class="seg" id="ed-priority">
+      <button type="button" data-v="high">High</button>
+      <button type="button" data-v="med">Med</button>
+      <button type="button" data-v="low">Low</button>
+    </div>
+  </div>
+  <div class="field">
+    <label>Status</label>
+    <div class="seg" id="ed-status">
+      <button type="button" data-v="todo">To do</button>
+      <button type="button" data-v="doing">Doing</button>
+      <button type="button" data-v="done">Done</button>
+    </div>
+  </div>
+  <div class="field">
+    <label for="ed-due">Due</label>
+    <input id="ed-due" type="date" />
+  </div>
+  <div class="field">
+    <label for="ed-note">Notes</label>
+    <textarea id="ed-note"></textarea>
+  </div>
+  <div class="actions">
+    <button class="del" id="ed-del" type="button">Delete</button>
+    <button class="save" id="ed-save" type="button">Save</button>
+  </div>
+</div>
+
+<!-- ===== Claude import sheet ===== -->
+<div id="claude-scrim" class="scrim"></div>
+<div id="claude-sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="claude-title">
+  <h3 id="claude-title">Add from Claude</h3>
+  <div class="field">
+    <label for="claude-json">Paste a JSON array of tasks</label>
+    <textarea id="claude-json" style="min-height:150px;" placeholder='[{"project_id":"tcb","title":"Call the RNDC rep about Q3 placement","priority":"high","note":""}]'></textarea>
+    <div class="hint">Each item needs <span class="mono">project_id</span> and <span class="mono">title</span>; <span class="mono">priority</span> and <span class="mono">note</span> are optional. They import as active to-dos.</div>
+  </div>
+  <div class="actions">
+    <button class="del" id="claude-cancel" type="button">Cancel</button>
+    <button class="save" id="claude-import" type="button">Import</button>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ===========================================================================
+   CONFIG — fill these in once your Supabase project exists.
+   Both are SAFE to ship in the client: RLS gates every row to the signed-in
+   owner. The service_role key NEVER goes here — it lives only in GitHub secrets.
+   =========================================================================== */
+const SUPABASE_URL      = "__SUPABASE_URL__";       // e.g. https://abcd1234.supabase.co
+const SUPABASE_ANON_KEY = "__SUPABASE_ANON_KEY__";  // the publishable / anon key
+
+/* ===========================================================================
+   Setup guard — runs BEFORE we touch the Supabase client, so a missing config
+   (or a failed CDN load) shows a friendly setup screen instead of a blank page
+   or a crash.
+   =========================================================================== */
+function showSetupScreen(msg) {
+  document.body.innerHTML =
+    '<div class="signin"><div class="box"><h1>Almost there</h1><p>' + msg + '</p></div></div>';
+}
+
+const CONFIG_MISSING = SUPABASE_URL.startsWith("__") || SUPABASE_ANON_KEY.startsWith("__");
+const CDN_MISSING = !(window.supabase && window.supabase.createClient);
+
+/* ===========================================================================
+   State
+   =========================================================================== */
+const sb = CONFIG_MISSING || CDN_MISSING
+  ? null
+  : window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    });
+
+const PRIORITY_ORDER = { high: 0, med: 1, low: 2 };
+const state = {
+  session: null,
+  projects: [],            // [{id,name,color,tag,sort}]
+  projectsById: {},
+  tasks: [],               // all tasks for the owner
+  view: "focus",
+  editingId: null,
+  channel: null,
+};
+
+const $ = (id) => document.getElementById(id);
+
+/* ===========================================================================
+   Boot / auth
+   =========================================================================== */
+async function boot() {
+  if (CONFIG_MISSING) {
+    showSetupScreen('Open <b>index.html</b> and paste your Supabase URL and anon key into the CONFIG block near the top of the script, then reload.');
+    return;
+  }
+  if (CDN_MISSING) {
+    showSetupScreen('The Supabase client failed to load (no network, or a blocked CDN). Check your connection and reload.');
+    return;
+  }
+  const { data } = await sb.auth.getSession();
+  state.session = data.session;
+  wireAuthUI();
+  sb.auth.onAuthStateChange((_e, session) => {
+    const was = !!state.session;
+    state.session = session;
+    if (!!session !== was) render();      // signed in/out
+  });
+  await render();
+}
+
+function wireAuthUI() {
+  $("signin-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = $("email").value.trim();
+    const msg = $("signin-msg");
+    if (!email) return;
+    $("send-link").disabled = true;
+    msg.className = "msg"; msg.textContent = "Sending…";
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.href.split("#")[0] },
+    });
+    $("send-link").disabled = false;
+    if (error) { msg.className = "msg err"; msg.textContent = error.message; }
+    else { msg.className = "msg ok"; msg.textContent = "Check your email for the sign-in link."; }
+  });
+  $("signout").addEventListener("click", async () => { await sb.auth.signOut(); });
+}
+
+/* ===========================================================================
+   Render top-level (sign-in vs app)
+   =========================================================================== */
+async function render() {
+  const signedIn = !!state.session;
+  $("signin").hidden = signedIn;
+  $("app").hidden = !signedIn;
+  $("quickbar").hidden = !signedIn;
+  if (!signedIn) { teardownRealtime(); return; }
+
+  $("who-email").textContent = state.session.user.email || "";
+  if (state.projects.length === 0) await loadAll();
+  setupRealtime();
+  renderList();
+}
+
+async function loadAll() {
+  const [{ data: projects, error: pe }, { data: tasks, error: te }] = await Promise.all([
+    sb.from("projects").select("*").order("sort", { ascending: true }),
+    sb.from("tasks").select("*"),
+  ]);
+  if (pe) toast("Could not load projects: " + pe.message);
+  if (te) toast("Could not load tasks: " + te.message);
+  state.projects = projects || [];
+  state.projectsById = Object.fromEntries(state.projects.map((p) => [p.id, p]));
+  state.tasks = tasks || [];
+  fillProjectSelects();
+}
+
+/* ===========================================================================
+   Realtime — keep state.tasks in sync with the DB live
+   =========================================================================== */
+function setupRealtime() {
+  if (state.channel) return;
+  state.channel = sb
+    .channel("tasks-live")
+    .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, (payload) => {
+      const { eventType, new: row, old } = payload;
+      if (eventType === "INSERT") upsertTask(row);
+      else if (eventType === "UPDATE") upsertTask(row);
+      else if (eventType === "DELETE") state.tasks = state.tasks.filter((t) => t.id !== old.id);
+      renderList();
+    })
+    .subscribe();
+}
+function teardownRealtime() {
+  if (state.channel) { sb.removeChannel(state.channel); state.channel = null; }
+}
+function upsertTask(row) {
+  const i = state.tasks.findIndex((t) => t.id === row.id);
+  if (i === -1) state.tasks.push(row);
+  else state.tasks[i] = row;
+}
+
+/* ===========================================================================
+   Views
+   =========================================================================== */
+function isOpen(t) { return t.status === "todo" || t.status === "doing"; }
+
+function dueSoon(t, days = 2) {
+  if (!t.due) return false;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const d = new Date(t.due + "T00:00:00");
+  const diff = (d - today) / 86400000;
+  return diff <= days;          // overdue or within `days`
+}
+
+function sortTasks(arr) {
+  return arr.slice().sort((a, b) => {
+    const pa = PRIORITY_ORDER[a.priority] ?? 1, pb = PRIORITY_ORDER[b.priority] ?? 1;
+    if (pa !== pb) return pa - pb;
+    const da = a.due || "9999-99-99", db = b.due || "9999-99-99";
+    if (da !== db) return da < db ? -1 : 1;
+    return (a.created_at || "") < (b.created_at || "") ? -1 : 1;
+  });
+}
+
+function renderList() {
+  // tabs + badge
+  document.querySelectorAll("nav.tabs button").forEach((b) =>
+    b.classList.toggle("active", b.dataset.view === state.view));
+  const suggested = state.tasks.filter((t) => t.status === "suggested");
+  const badge = $("inbox-badge");
+  badge.textContent = suggested.length;
+  badge.classList.toggle("zero", suggested.length === 0);
+
+  const list = $("list");
+  list.innerHTML = "";
+
+  if (state.view === "inbox") return renderInbox(list, suggested);
+
+  // the other three views never show suggested tasks
+  const open = state.tasks.filter(isOpen);
+
+  if (state.view === "focus") {
+    const focus = sortTasks(open.filter((t) =>
+      t.priority === "high" || t.status === "doing" || dueSoon(t, 2)));
+    if (!focus.length) return renderEmpty(list, "Nothing urgent", "No high-priority, in-progress, or soon-due tasks. Breathe.");
+    focus.forEach((t) => list.appendChild(taskCard(t)));
+    return;
+  }
+
+  if (state.view === "all") {
+    if (!open.length) return renderEmpty(list, "All clear", "No open tasks anywhere. Add one below.");
+    sortTasks(open).forEach((t) => list.appendChild(taskCard(t)));
+    return;
+  }
+
+  // by project
+  if (!open.length) return renderEmpty(list, "All clear", "No open tasks anywhere. Add one below.");
+  for (const p of state.projects) {
+    const items = sortTasks(open.filter((t) => t.project_id === p.id));
+    if (!items.length) continue;
+    list.appendChild(groupHeader(p, items.length));
+    items.forEach((t) => list.appendChild(taskCard(t)));
+  }
+}
+
+function renderInbox(list, suggested) {
+  if (!suggested.length) return renderEmpty(list, "Inbox zero", "No suggestions waiting. The daily agent drops new ones here each morning.");
+  // group by venture for readability
+  for (const p of state.projects) {
+    const items = suggested.filter((t) => t.project_id === p.id);
+    if (!items.length) continue;
+    list.appendChild(groupHeader(p, items.length));
+    items.forEach((t) => list.appendChild(suggestionCard(t)));
+  }
+}
+
+function groupHeader(p, n) {
+  const h = document.createElement("div");
+  h.className = "group-h";
+  h.innerHTML = `<span class="dot" style="background:${p.color}"></span>${escapeHtml(p.name)}<span class="count">${n}</span>`;
+  return h;
+}
+
+function renderEmpty(list, big, sub) {
+  const e = document.createElement("div");
+  e.className = "empty";
+  e.innerHTML = `<div class="big">${escapeHtml(big)}</div><div>${escapeHtml(sub)}</div>`;
+  list.appendChild(e);
+}
+
+function taskCard(t) {
+  const p = state.projectsById[t.project_id];
+  const color = p ? p.color : "var(--khaki)";
+  const el = document.createElement("div");
+  el.className = "card" + (t.status === "done" ? " done" : "");
+  el.style.borderLeftColor = color;
+
+  const showVen = state.view !== "project"; // grouped view already labels the venture
+  const dueStr = t.due ? fmtDue(t.due) : "";
+  const meta = [];
+  meta.push(`<span class="pill ${t.priority}">${t.priority}</span>`);
+  if (t.status === "doing") meta.push(`<span class="pill doing">doing</span>`);
+  if (t.due) meta.push(`<span class="pill due ${dueSoon(t,2) ? "soon" : ""}">${dueStr}</span>`);
+  if (t.source && t.source !== "manual") meta.push(`<span class="pill src">${t.source}</span>`);
+
+  el.innerHTML = `
+    <button class="check" aria-label="Toggle done">${t.status === "done" ? "✓" : ""}</button>
+    <div class="body">
+      <div class="t">${showVen && p ? `<span class="ven">${escapeHtml(shortName(p))}</span>` : ""}${escapeHtml(t.title)}</div>
+      ${t.note ? `<div class="note">${escapeHtml(t.note)}</div>` : ""}
+      <div class="meta">${meta.join("")}</div>
+    </div>
+    <button class="edit" aria-label="Edit">✎</button>`;
+
+  el.querySelector(".check").addEventListener("click", () => toggleDone(t));
+  el.querySelector(".edit").addEventListener("click", () => openEdit(t));
+  return el;
+}
+
+function suggestionCard(t) {
+  const el = document.createElement("div");
+  el.className = "card";
+  const p = state.projectsById[t.project_id];
+  el.style.borderLeftColor = p ? p.color : "var(--khaki)";
+  el.innerHTML = `
+    <div class="body" style="margin-left:2px">
+      <div class="t">${escapeHtml(t.title)}</div>
+      ${t.note ? `<div class="note">${escapeHtml(t.note)}</div>` : ""}
+      <div class="meta"><span class="pill ${t.priority}">${t.priority}</span><span class="pill src">suggested</span></div>
+      <div class="inbox-actions">
+        <button class="btn-sm accept">Accept</button>
+        <button class="btn-sm dismiss">Dismiss</button>
+      </div>
+    </div>`;
+  el.querySelector(".accept").addEventListener("click", () => acceptSuggestion(t));
+  el.querySelector(".dismiss").addEventListener("click", () => dismissSuggestion(t));
+  return el;
+}
+
+/* ===========================================================================
+   Mutations
+   =========================================================================== */
+async function toggleDone(t) {
+  const next = t.status === "done" ? "todo" : "done";
+  await updateTask(t.id, { status: next });
+}
+
+async function acceptSuggestion(t) {
+  await updateTask(t.id, { status: "todo" });
+  toast("Accepted");
+}
+
+async function dismissSuggestion(t) {
+  // optimistic
+  state.tasks = state.tasks.filter((x) => x.id !== t.id);
+  renderList();
+  const { error } = await sb.from("tasks").delete().eq("id", t.id);
+  if (error) toast("Dismiss failed: " + error.message);
+}
+
+async function updateTask(id, patch) {
+  // optimistic
+  const i = state.tasks.findIndex((t) => t.id === id);
+  if (i !== -1) { state.tasks[i] = { ...state.tasks[i], ...patch }; renderList(); }
+  const { error } = await sb.from("tasks").update(patch).eq("id", id);
+  if (error) { toast("Save failed: " + error.message); await loadAll(); renderList(); }
+}
+
+async function addTask(projectId, title) {
+  const row = { project_id: projectId, title: title.trim(), priority: "med", status: "todo", source: "manual" };
+  const { data, error } = await sb.from("tasks").insert(row).select().single();
+  if (error) { toast("Add failed: " + error.message); return; }
+  upsertTask(data); renderList();
+}
+
+/* ===========================================================================
+   Quick-add
+   =========================================================================== */
+function fillProjectSelects() {
+  const opts = state.projects.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+  $("qa-project").innerHTML = opts;
+  $("ed-project").innerHTML = opts;
+}
+
+function wireQuickAdd() {
+  const title = $("qa-title"), add = $("qa-add");
+  title.addEventListener("input", () => { add.disabled = !title.value.trim(); });
+  function submit() {
+    const v = title.value.trim();
+    if (!v) return;
+    addTask($("qa-project").value, v);
+    title.value = ""; add.disabled = true;
+  }
+  add.addEventListener("click", submit);
+  title.addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
+}
+
+/* ===========================================================================
+   Edit sheet
+   =========================================================================== */
+function openEdit(t) {
+  state.editingId = t.id;
+  $("ed-title").value = t.title;
+  $("ed-project").value = t.project_id;
+  $("ed-due").value = t.due || "";
+  $("ed-note").value = t.note || "";
+  setSeg("ed-priority", t.priority);
+  setSeg("ed-status", t.status === "suggested" ? "todo" : t.status);
+  openSheet("sheet", "scrim");
+}
+
+function setSeg(groupId, val) {
+  document.querySelectorAll(`#${groupId} button`).forEach((b) =>
+    b.classList.toggle("on", b.dataset.v === val));
+}
+function getSeg(groupId) {
+  const on = document.querySelector(`#${groupId} button.on`);
+  return on ? on.dataset.v : null;
+}
+
+function wireEditSheet() {
+  ["ed-priority", "ed-status"].forEach((g) => {
+    $(g).addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      setSeg(g, b.dataset.v);
+    });
+  });
+  $("ed-save").addEventListener("click", async () => {
+    const patch = {
+      title: $("ed-title").value.trim(),
+      project_id: $("ed-project").value,
+      due: $("ed-due").value || null,
+      note: $("ed-note").value,
+      priority: getSeg("ed-priority") || "med",
+      status: getSeg("ed-status") || "todo",
+    };
+    if (!patch.title) { toast("Title can't be empty"); return; }
+    await updateTask(state.editingId, patch);
+    closeSheet("sheet", "scrim");
+  });
+  $("ed-del").addEventListener("click", async () => {
+    const id = state.editingId;
+    state.tasks = state.tasks.filter((t) => t.id !== id);
+    renderList(); closeSheet("sheet", "scrim");
+    const { error } = await sb.from("tasks").delete().eq("id", id);
+    if (error) toast("Delete failed: " + error.message);
+  });
+  $("scrim").addEventListener("click", () => closeSheet("sheet", "scrim"));
+}
+
+/* ===========================================================================
+   Claude merge-import
+   =========================================================================== */
+function wireClaudeImport() {
+  $("open-claude").addEventListener("click", () => { $("claude-json").value = ""; openSheet("claude-sheet", "claude-scrim"); });
+  $("claude-cancel").addEventListener("click", () => closeSheet("claude-sheet", "claude-scrim"));
+  $("claude-scrim").addEventListener("click", () => closeSheet("claude-sheet", "claude-scrim"));
+  $("claude-import").addEventListener("click", async () => {
+    let arr;
+    try { arr = JSON.parse($("claude-json").value); }
+    catch (e) { toast("That isn't valid JSON"); return; }
+    if (!Array.isArray(arr)) { toast("Expected a JSON array"); return; }
+    const valid = state.projectsById;
+    const rows = [];
+    for (const it of arr) {
+      if (!it || !it.title || !it.project_id) continue;
+      if (!valid[it.project_id]) { toast(`Unknown project_id "${it.project_id}"`); return; }
+      rows.push({
+        project_id: it.project_id,
+        title: String(it.title).trim(),
+        priority: ["high", "med", "low"].includes(it.priority) ? it.priority : "med",
+        note: it.note ? String(it.note) : "",
+        status: "todo",
+        source: "claude",
+      });
+    }
+    if (!rows.length) { toast("Nothing valid to import"); return; }
+    const { data, error } = await sb.from("tasks").insert(rows).select();
+    if (error) { toast("Import failed: " + error.message); return; }
+    (data || []).forEach(upsertTask);
+    renderList();
+    closeSheet("claude-sheet", "claude-scrim");
+    toast(`Imported ${rows.length} task${rows.length > 1 ? "s" : ""}`);
+  });
+}
+
+/* ===========================================================================
+   Export backup (JSON download)
+   =========================================================================== */
+function wireExport() {
+  $("export").addEventListener("click", () => {
+    const blob = new Blob([JSON.stringify({ exported_at: new Date().toISOString(), projects: state.projects, tasks: state.tasks }, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "command-center-backup.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+}
+
+/* ===========================================================================
+   Tabs + sheet plumbing + utils
+   =========================================================================== */
+function wireTabs() {
+  document.querySelectorAll("nav.tabs button").forEach((b) =>
+    b.addEventListener("click", () => { state.view = b.dataset.view; renderList(); }));
+}
+function openSheet(sheetId, scrimId) { $(scrimId).classList.add("open"); $(sheetId).classList.add("open"); }
+function closeSheet(sheetId, scrimId) { $(scrimId).classList.remove("open"); $(sheetId).classList.remove("open"); }
+
+let toastTimer = null;
+function toast(msg) {
+  const el = $("toast"); el.textContent = msg; el.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
+}
+
+function shortName(p) {
+  // first word(s) for the inline venture tag
+  return p.name.split(/\s|&/)[0];
+}
+function fmtDue(d) {
+  const date = new Date(d + "T00:00:00");
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diff = Math.round((date - today) / 86400000);
+  if (diff === 0) return "today";
+  if (diff === 1) return "tomorrow";
+  if (diff === -1) return "yesterday";
+  if (diff < 0) return `${-diff}d overdue`;
+  if (diff < 7) return `in ${diff}d`;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+/* ===========================================================================
+   Go
+   =========================================================================== */
+wireTabs(); wireQuickAdd(); wireEditSheet(); wireClaudeImport(); wireExport();
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { closeSheet("sheet", "scrim"); closeSheet("claude-sheet", "claude-scrim"); }
+});
+boot();
+</script>
+</body>
+</html>

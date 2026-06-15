@@ -1,0 +1,15 @@
+{
+  "name": "command-center-agent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Daily task agent for Command Center — proposes tasks per venture into the Supabase review queue.",
+  "main": "run.js",
+  "scripts": {
+    "start": "node run.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.40.0",
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}

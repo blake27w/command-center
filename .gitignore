@@ -1,0 +1,9 @@
+node_modules/
+.DS_Store
+.env
+.env.*
+*.local
+command-center-backup.json
+
+# local tooling
+.claude/
