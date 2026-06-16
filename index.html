@@ -778,6 +778,14 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") { closeSheet("sheet", "scrim"); closeSheet("claude-sheet", "claude-scrim"); }
 });
 boot();
+
+/* Register the service worker for instant launch + offline shell. The SW is
+   network-first for the document, so this never pins you to a stale build. */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
 </script>
 </body>
 </html>

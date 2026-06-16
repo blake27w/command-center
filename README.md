@@ -52,9 +52,15 @@ to the signed-in owner. The **service_role key never goes here.**
 2. **Settings → Pages →** Source: **Deploy from a branch**, Branch: **`main`** /
    **`/ (root)`** → Save. Wait for the green check; note the URL
    (`https://blake27w.github.io/command-center/`).
-3. Open the URL, sign in (below), then **Add to Home Screen** on the iPhone so it
-   behaves like an app. Because it's just a bookmark to Pages, **every code push
-   ships instantly — no reinstall ever.**
+3. Open the URL, sign in (below), then **Add to Home Screen** on the iPhone. A
+   web manifest + app icon make it install as a real standalone app (custom icon,
+   no Safari chrome), and a service worker (`sw.js`) makes it open instantly and
+   load its shell even on a flaky/offline connection.
+4. **Updates still ship with no reinstall.** The service worker is *network-first*
+   for the app itself: when online you always get the freshest deploy, so a
+   `git push` lands on the next open. The cache is only an offline fallback — it
+   never pins you to a stale build. (Bump `VERSION` in `sw.js` if you ever want to
+   force-invalidate all caches.)
 
 ### 4. Wire the daily agent secrets
 You need the owner's Supabase user id first: sign in to the app once (step below),
