@@ -22,6 +22,9 @@
   --r: 10px;
 }
 *{ box-sizing:border-box; }
+/* Make the `hidden` attribute authoritative — author display rules on .signin /
+   .app / .quickbar would otherwise override the UA [hidden]{display:none}. */
+[hidden]{ display:none !important; }
 html,body{ margin:0; padding:0; }
 body{
   background:var(--paper); color:var(--ink);
