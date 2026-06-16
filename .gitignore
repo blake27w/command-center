@@ -7,3 +7,9 @@ command-center-backup.json
 
 # local tooling
 .claude/
+
+# local preview/test helpers (never committed)
+__*.cjs
+__*.js
+__*.local.*
+*.local.*
