@@ -301,8 +301,8 @@ main{ padding:14px 16px 0; flex:1; }
    Both are SAFE to ship in the client: RLS gates every row to the signed-in
    owner. The service_role key NEVER goes here — it lives only in GitHub secrets.
    =========================================================================== */
-const SUPABASE_URL      = "__SUPABASE_URL__";       // e.g. https://abcd1234.supabase.co
-const SUPABASE_ANON_KEY = "__SUPABASE_ANON_KEY__";  // the publishable / anon key
+const SUPABASE_URL      = "https://xlhiqdloztedxdwappdm.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_henYwMuQuiLxQKtM8ABAZQ_44zlh-q_";  // publishable key — safe in client under RLS
 
 /* ===========================================================================
    Setup guard — runs BEFORE we touch the Supabase client, so a missing config
