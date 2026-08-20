@@ -7,8 +7,14 @@ Actions** job proposes tasks per venture into an **Inbox** you approve or dismis
 
 One owner. One database. One repo. No partner hardware, no always-on server.
 
-The seven ventures: **Alpha Radar**, **Vantyx**, **Landscape & Junk Removal**,
-**Three Chord Bourbon**, **Edge Tracker**, **Pool Hall Pro**, **Scout**.
+The ventures: **Pool Room Pro**, **Vantyx**, **Rack Pay**, **Alpha Radar**,
+**Edge Tracker**, **Scout**, **Landscape & Junk Removal**, **Three Chord Bourbon**.
+
+Some ventures carry more than one build. Vantyx covers the consulting pipeline,
+the practice dashboard, the FieldBook client build, and the property-services
+platform. Pool Room Pro covers both the desktop app and the vendor control
+plane. Rack Pay is its own venture (api + web), adjacent to Pool Room Pro but a
+separate business. Keep that mapping in `agent/profiles.js` when it changes.
 
 ```
 /index.html                  # the app (GitHub Pages serves this)
@@ -28,7 +34,7 @@ The seven ventures: **Alpha Radar**, **Vantyx**, **Landscape & Junk Removal**,
 1. Create a project at [supabase.com](https://supabase.com).
 2. **SQL Editor → New query →** paste all of [`schema.sql`](schema.sql) → **Run**.
    This creates `projects` + `tasks`, the RLS policies, the `updated_at` trigger,
-   seeds the seven ventures, and turns on Realtime for `tasks`.
+   seeds the ventures, and turns on Realtime for `tasks`.
 3. Confirm Realtime: **Database → Replication → `supabase_realtime`** — `tasks`
    should be on (the schema's last line does this; the toggle is the fallback).
 4. **Authentication → Providers →** make sure **Email** is enabled (magic link is
@@ -109,7 +115,7 @@ Bottom bar → **Add from Claude** → paste a JSON array:
 
 Each item needs `project_id` and `title` (`priority`/`note` optional). They import
 as active to-dos (`source = claude`). Valid `project_id`s:
-`alpha, vantyx, land, tcb, edge, pool, scout`.
+`alpha, vantyx, land, tcb, edge, pool, scout, rackpay`.
 
 ### Export backup
 Bottom bar → **Export backup** downloads a JSON snapshot. Supabase is the source
@@ -121,9 +127,14 @@ of truth; this is just peace of mind.
 
 `.github/workflows/agent.yml` runs `agent/run.js` once a day at **11:00 UTC
 (~6:00 AM Central)**. For each venture it reads your existing open/suggested
-titles, asks Claude for up to a few good next tasks (thin ventures **Pool Hall
-Pro** and **Scout** get at most one "define scope" nudge), drops near-duplicates,
-and inserts the survivors as `suggested` — which surface in your **Inbox**.
+titles, asks Claude for up to a few good next tasks, drops near-duplicates, and
+inserts the survivors as `suggested` — which surface in your **Inbox**.
+
+Each venture's daily cap is its `maxTasks` in `agent/profiles.js`, weighted by
+what's actually moving: **Pool Room Pro 4**, **Vantyx 4**, **Rack Pay 3**,
+**Alpha Radar 3**, and 2 each for Edge Tracker, Scout, Landscape, and Three
+Chord Bourbon — 22/day at the ceiling, well under it in practice. If the Inbox
+starts feeling like noise, lower the caps before you lower the standards.
 
 **Run it on demand:** GitHub → **Actions → daily-task-agent → Run workflow**.
 Watch suggestions land in the Inbox within ~2s of the job finishing.
@@ -154,7 +165,17 @@ Watch suggestions land in the Inbox within ~2s of the job finishing.
 
 ---
 
+## Adding a venture
+Four places, all of which must agree:
+1. `schema.sql` — add the row to the seed block, then run that `insert … on
+   conflict` statement in the Supabase SQL editor so the live DB gets it.
+2. `agent/profiles.js` — add the profile (`id`, `name`, `signalAware: false`,
+   `maxTasks`, `focus`).
+3. `index.html` — add a label to the `SHORT` map (optional; it falls back to the
+   first word of the name).
+4. This README — the venture list and the valid `project_id`s above.
+
 ## Phase 2 (not built — out of scope here)
-Direct in-chat task writes via an always-on endpoint; Alpha Radar **signal-aware**
-mode fed by the Mac mini (~July 10); push notifications. The agent profiles keep
-`signalAware: false` until then.
+Direct in-chat task writes via an always-on endpoint; Alpha Radar
+**signal-aware** mode once a live signal feed writes into Supabase; push
+notifications. Every profile keeps `signalAware: false` until then.
