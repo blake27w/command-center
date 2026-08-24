@@ -1,24 +1,33 @@
 // Command Center — daily task agent.
 //
-// Runs once a day from GitHub Actions (.github/workflows/agent.yml). For each
-// venture it asks Claude for up to a few good next tasks, drops near-duplicates,
-// and inserts the survivors into Supabase as `suggested` tasks for the owner to
-// review in the Inbox.
+// For each venture it asks Claude for a few good next tasks, drops
+// near-duplicates, and inserts the survivors as `suggested` for review in the
+// Inbox. Also materialises any recurring tasks that have come due.
 //
-// Uses the SERVICE key (server-side only — bypasses RLS), so every inserted row
-// must explicitly set `owner` to OWNER_USER_ID.
+// Runs from two places:
+//   * GitHub Actions, once a day  (.github/workflows/agent.yml)
+//   * the worker, on demand       (device/daemon.mjs, job kind `agent.run`)
 //
-// Env (all GitHub repo secrets):
+// Usage:
+//   node run.js                      every enabled venture, plus recurrences
+//   node run.js --project pool       just that venture, no recurrences
+//   node run.js --recurrences-only   materialise recurrences and stop
+//   node run.js --dry-run            propose and print, write nothing
+//
+// Uses the SERVICE key (bypasses RLS), so every inserted row sets `owner`
+// explicitly to OWNER_USER_ID.
+//
+// Env:
 //   ANTHROPIC_API_KEY    — Claude API key
 //   SUPABASE_URL         — project URL
 //   SUPABASE_SERVICE_KEY — service_role key (NEVER ship to the client)
-//   OWNER_USER_ID        — the auth.users id of the single owner
-//   AGENT_MODEL          — optional override; default claude-sonnet-4-6
-//                          (set to claude-haiku-4-5-20251001 to run cheaper)
+//   OWNER_USER_ID        — the auth.users id of the workspace owner
+//   AGENT_MODEL          — optional; default claude-sonnet-4-6
 
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
 import { profiles } from './profiles.js';
+import { spawnDue } from './recurrence.js';
 
 const {
   ANTHROPIC_API_KEY,
@@ -30,37 +39,38 @@ const {
 
 const MODEL = AGENT_MODEL || 'claude-sonnet-4-6';
 
+// ---- args ------------------------------------------------------------------
+const argv = process.argv.slice(2);
+const flag = (name) => argv.includes(name);
+const value = (name) => { const i = argv.indexOf(name); return i === -1 ? null : argv[i + 1] ?? null; };
+
+const ONLY_PROJECT     = value('--project');
+const RECURRENCES_ONLY = flag('--recurrences-only');
+const DRY_RUN          = flag('--dry-run');
+// A scoped run is someone pressing "Run now" on one venture; they don't expect
+// it to also spawn every recurring task across the workspace.
+const DO_RECURRENCES   = !ONLY_PROJECT && !flag('--no-recurrences');
+
 // ---- guard rails -----------------------------------------------------------
 for (const [k, v] of Object.entries({
-  ANTHROPIC_API_KEY,
-  SUPABASE_URL,
-  SUPABASE_SERVICE_KEY,
-  OWNER_USER_ID,
+  ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY, OWNER_USER_ID,
 })) {
-  if (!v) {
-    console.error(`Missing required env var: ${k}`);
-    process.exit(1);
-  }
+  if (!v) { console.error(`Missing required env var: ${k}`); process.exit(1); }
 }
 
 const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+const supabase  = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { persistSession: false },
 });
 
 // ---- helpers ---------------------------------------------------------------
 
-// Normalize a title for fuzzy duplicate detection.
 function normalize(s) {
-  return (s || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
 }
 
-// Cheap token-overlap similarity. Returns true if `candidate` is "close enough"
-// to any existing title that we should drop it as a duplicate.
+// Cheap token-overlap similarity: true if `candidate` is close enough to
+// something that already exists that proposing it again would be noise.
 function isDuplicate(candidate, existingTitles) {
   const c = normalize(candidate);
   if (!c) return true;
@@ -73,38 +83,50 @@ function isDuplicate(candidate, existingTitles) {
     const eWords = new Set(e.split(' ').filter(Boolean));
     const inter = [...cWords].filter((w) => eWords.has(w)).length;
     const denom = Math.max(cWords.size, eWords.size) || 1;
-    if (inter / denom >= 0.6) return true; // >=60% word overlap → treat as dup
+    if (inter / denom >= 0.6) return true;
   }
   return false;
 }
 
-// Pull the existing open/suggested task titles for one venture.
+// Per-venture agent settings, editable from the app without a deploy.
+// profiles.js keeps the long-form `focus` prose, because that belongs in git
+// where you can see how it changed; on/off and the daily cap live in the
+// database so a toggle takes effect on the next run.
+async function loadSettings() {
+  const { data, error } = await supabase
+    .from('venture_settings')
+    .select('project_id, agent_on, max_tasks');
+
+  if (error) {
+    console.error(`  ! venture_settings unreadable (${error.message}) — falling back to profiles.js`);
+    return {};
+  }
+  return Object.fromEntries((data || []).map((r) => [r.project_id, r]));
+}
+
+// Existing open/suggested titles for one venture.
+//
+// Deliberately NOT filtered by owner. Visibility is per-venture now, so a
+// partner's tasks are part of the same board — filtering by owner would hide
+// them from the agent and it would cheerfully re-propose work someone else is
+// already doing.
 async function existingTitlesFor(projectId) {
   const { data, error } = await supabase
     .from('tasks')
     .select('title')
     .eq('project_id', projectId)
-    .eq('owner', OWNER_USER_ID)
     .in('status', ['todo', 'doing', 'suggested']);
-  if (error) {
-    console.error(`  ! failed to read existing tasks: ${error.message}`);
-    return [];
-  }
+
+  if (error) { console.error(`  ! failed to read existing tasks: ${error.message}`); return []; }
   return (data || []).map((r) => r.title);
 }
 
-// Strip stray markdown fences and parse a JSON array, defensively.
 function parseProposals(raw) {
   if (!raw) return [];
   let text = raw.trim();
-  // remove ```json ... ``` or ``` ... ``` fences if present
   text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-  // if there's prose around it, grab the first [...] block
-  const start = text.indexOf('[');
-  const end = text.lastIndexOf(']');
-  if (start !== -1 && end !== -1 && end > start) {
-    text = text.slice(start, end + 1);
-  }
+  const start = text.indexOf('['), end = text.lastIndexOf(']');
+  if (start !== -1 && end !== -1 && end > start) text = text.slice(start, end + 1);
   try {
     const parsed = JSON.parse(text);
     return Array.isArray(parsed) ? parsed : [];
@@ -116,17 +138,17 @@ function parseProposals(raw) {
 
 const VALID_PRIORITY = new Set(['high', 'med', 'low']);
 
-// Ask Claude for proposals for one venture.
-async function proposeFor(profile, existingTitles) {
-  const sys = `You are the daily planning agent for "${profile.name}", one of seven
+async function proposeFor(profile, cap, existingTitles, ventureCount) {
+  const sys = `You are the daily planning agent for "${profile.name}", one of ${ventureCount}
 ventures run by a solo operator. Propose only genuinely useful NEXT tasks.
 
-Return ONLY a JSON array (no preamble, no markdown fences) of at most ${profile.maxTasks}
+Return ONLY a JSON array (no preamble, no markdown fences) of at most ${cap}
 objects, each: {"title": string, "priority": "high"|"med"|"low", "note"?: string}.
 Return [] if nothing is worth adding today — an empty day is a fine answer and is
 preferred over filler. Titles must be concrete and actionable (start with a verb).
 Do NOT repropose anything already in the existing-tasks list below (including
-near-duplicates / rewordings).`;
+near-duplicates / rewordings). Some of those tasks may belong to a partner
+rather than the operator; treat them as taken either way.`;
 
   const user = `VENTURE FOCUS:
 ${profile.focus}
@@ -134,7 +156,7 @@ ${profile.focus}
 EXISTING OPEN/SUGGESTED TASKS (do not duplicate these):
 ${existingTitles.length ? existingTitles.map((t) => `- ${t}`).join('\n') : '(none yet)'}
 
-Propose up to ${profile.maxTasks} task(s) now as a JSON array.`;
+Propose up to ${cap} task(s) now as a JSON array.`;
 
   const resp = await anthropic.messages.create({
     model: MODEL,
@@ -143,54 +165,74 @@ Propose up to ${profile.maxTasks} task(s) now as a JSON array.`;
     messages: [{ role: 'user', content: user }],
   });
 
-  const text = (resp.content || [])
-    .filter((b) => b.type === 'text')
-    .map((b) => b.text)
-    .join('\n');
-
-  return parseProposals(text);
+  return parseProposals(
+    (resp.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n')
+  );
 }
 
 // ---- main ------------------------------------------------------------------
 async function main() {
-  console.log(`Command Center agent — model=${MODEL} — ${profiles.length} ventures`);
+  if (RECURRENCES_ONLY) {
+    console.log('Command Center agent — recurrences only');
+    const r = await spawnDue(supabase, { log: (m) => console.log(m) });
+    console.log(`Done. ${r.created} created, ${r.skipped} already existed, ${r.checked} due.`);
+    return;
+  }
+
+  const settings = await loadSettings();
+
+  let queue = profiles;
+  if (ONLY_PROJECT) {
+    queue = profiles.filter((p) => p.id === ONLY_PROJECT);
+    if (!queue.length) { console.error(`No profile for project "${ONLY_PROJECT}"`); process.exit(1); }
+  }
+
+  // A venture with no settings row is treated as on — a missing row should
+  // mean "not configured yet", never a silently disabled venture.
+  const enabled = queue.filter((p) => settings[p.id]?.agent_on !== false);
+  const paused  = queue.length - enabled.length;
+
+  console.log(
+    `Command Center agent — model=${MODEL} — ${enabled.length} venture(s)` +
+    (paused ? `, ${paused} paused` : '') + (DRY_RUN ? ' — DRY RUN' : '')
+  );
+
   let totalInserted = 0;
 
-  for (const profile of profiles) {
+  for (const profile of enabled) {
+    const cap = settings[profile.id]?.max_tasks ?? profile.maxTasks ?? 3;
     try {
-      const existing = await existingTitlesFor(profile.id);
-      const proposals = await proposeFor(profile, existing);
+      const existing  = await existingTitlesFor(profile.id);
+      const proposals = await proposeFor(profile, cap, existing, profiles.length);
 
       const rows = [];
       for (const p of proposals) {
         const title = (p && p.title ? String(p.title) : '').trim();
         if (!title) continue;
         if (isDuplicate(title, existing)) continue;
-        const priority = VALID_PRIORITY.has(p.priority) ? p.priority : 'med';
         rows.push({
           owner: OWNER_USER_ID,
           project_id: profile.id,
           title,
           note: p.note ? String(p.note) : '',
-          priority,
+          priority: VALID_PRIORITY.has(p.priority) ? p.priority : 'med',
           status: 'suggested',
           source: 'agent',
         });
-        // also block intra-batch dups
-        existing.push(title);
-        if (rows.length >= profile.maxTasks) break;
+        existing.push(title);              // block intra-batch duplicates too
+        if (rows.length >= cap) break;
       }
 
-      if (rows.length === 0) {
-        console.log(`  ${profile.name}: nothing proposed`);
+      if (!rows.length) { console.log(`  ${profile.name}: nothing proposed`); continue; }
+
+      if (DRY_RUN) {
+        console.log(`  ${profile.name}: would add ${rows.length} — ${rows.map((r) => r.title).join(' | ')}`);
         continue;
       }
 
       const { error } = await supabase.from('tasks').insert(rows);
-      if (error) {
-        console.error(`  ${profile.name}: insert failed — ${error.message}`);
-        continue;
-      }
+      if (error) { console.error(`  ${profile.name}: insert failed — ${error.message}`); continue; }
+
       totalInserted += rows.length;
       console.log(`  ${profile.name}: +${rows.length} suggested → ${rows.map((r) => r.title).join(' | ')}`);
     } catch (e) {
@@ -198,10 +240,17 @@ async function main() {
     }
   }
 
+  if (DO_RECURRENCES && !DRY_RUN) {
+    console.log('Recurring tasks:');
+    try {
+      const r = await spawnDue(supabase, { log: (m) => console.log(m) });
+      if (!r.checked) console.log('  none due');
+    } catch (e) {
+      console.error(`  ! ${e.message}`);
+    }
+  }
+
   console.log(`Done. Inserted ${totalInserted} suggested task(s).`);
 }
 
-main().catch((e) => {
-  console.error('Fatal:', e);
-  process.exit(1);
-});
+main().catch((e) => { console.error('Fatal:', e); process.exit(1); });

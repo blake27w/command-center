@@ -13,3 +13,5 @@ __*.cjs
 __*.js
 __*.local.*
 *.local.*
+device/logs/
+device/workloads.json

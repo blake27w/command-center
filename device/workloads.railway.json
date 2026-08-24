@@ -1,0 +1,11 @@
+{
+  "//": "Workload manifest for the HOSTED worker (Railway). Point at it with WORKLOADS_FILE=device/workloads.railway.json",
+  "//2": "A container only has this repo. agent.run works because agent/run.js is right here; the collectors shell into repos that live on the mini, so they are deliberately absent — a job for a kind with no workload fails cleanly with a message saying so, rather than half-running.",
+  "//3": "Paths are relative to the repo root, which is the container's working directory.",
+
+  "agent.run": {
+    "argv": ["node", "agent/run.js"],
+    "cwd": ".",
+    "timeout_seconds": 600
+  }
+}

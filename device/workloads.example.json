@@ -1,0 +1,32 @@
+{
+  "//": "Copy to workloads.json and fix the paths. THIS FILE IS THE SECURITY BOUNDARY.",
+  "//2": "The database can only ask for a job KIND. What that kind actually runs is decided here, on this machine. Never move these commands into the database, and never build one from job params.",
+  "//3": "argv is an array — argv[0] is the executable, the rest are arguments. It is spawned with shell:false, so quoting, globs, pipes and semicolons have no meaning and cannot be injected.",
+
+  "agent.run": {
+    "argv": ["/opt/homebrew/bin/node", "agent/run.js"],
+    "cwd": "~/code/command-center",
+    "timeout_seconds": 600,
+    "env": {
+      "//": "ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY and OWNER_USER_ID come from .env — no need to repeat them here."
+    }
+  },
+
+  "alpha.collect": {
+    "argv": ["/opt/homebrew/bin/python3", "-m", "collectors.run_all"],
+    "cwd": "~/code/alpha-radar",
+    "timeout_seconds": 1800
+  },
+
+  "scout.collect": {
+    "argv": ["./.venv/bin/python", "-c", "from main import refresh_now; refresh_now()"],
+    "cwd": "~/code/scout-backend",
+    "timeout_seconds": 1800
+  },
+
+  "edge.grade": {
+    "argv": ["/opt/homebrew/bin/node", "scripts/grade.mjs"],
+    "cwd": "~/code/edge-tracker",
+    "timeout_seconds": 600
+  }
+}

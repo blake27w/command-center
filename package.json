@@ -1,0 +1,12 @@
+{
+  "name": "command-center",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Command Center — task manager, daily agent, and job worker for one operator's ventures.",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "postinstall": "npm --prefix agent install --omit=dev && npm --prefix device install --omit=dev",
+    "start": "node device/daemon.mjs"
+  }
+}

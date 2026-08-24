@@ -1,0 +1,18 @@
+{
+  "name": "command-center-device",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Worker for the Command Center — runs queued jobs and reports back over Supabase. Runs on a Mac mini or any host with outbound network.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node daemon.mjs",
+    "start:local": "node --env-file=.env daemon.mjs",
+    "ping": "node --env-file=.env -e \"import('@supabase/supabase-js').then(async ({createClient})=>{const sb=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_KEY);const {data,error}=await sb.from('jobs').insert({kind:'device.ping'}).select().single();console.log(error??('queued '+data.id));})\""
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.112.4"
+  }
+}
