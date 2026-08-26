@@ -198,6 +198,8 @@ async function main() {
   );
 
   let totalInserted = 0;
+  let errored = 0;
+  const failures = [];
 
   for (const profile of enabled) {
     const cap = settings[profile.id]?.max_tasks ?? profile.maxTasks ?? 3;
@@ -236,6 +238,8 @@ async function main() {
       totalInserted += rows.length;
       console.log(`  ${profile.name}: +${rows.length} suggested → ${rows.map((r) => r.title).join(' | ')}`);
     } catch (e) {
+      errored++;
+      failures.push(`${profile.name}: ${e.message}`);
       console.error(`  ${profile.name}: error — ${e.message}`);
     }
   }
@@ -251,6 +255,37 @@ async function main() {
   }
 
   console.log(`Done. Inserted ${totalInserted} suggested task(s).`);
+
+  // ---- fail loudly when nothing worked ------------------------------------
+  //
+  // This exists because of a real incident: the Anthropic credit balance ran
+  // out in early July, every venture failed every morning for seven weeks, and
+  // the run still exited 0 — so GitHub Actions stayed green, the job row said
+  // `done`, and nothing anywhere said a word. It was found by accident.
+  //
+  // A PARTIAL failure is tolerable and only warns: one venture erroring should
+  // not throw away the other seven's suggestions. TOTAL failure is different —
+  // it means the agent is dead, and it should look dead.
+  if (enabled.length > 0 && errored === enabled.length) {
+    console.error('');
+    console.error(`FAILED: all ${errored} venture(s) errored. Nothing was written.`);
+    for (const f of failures.slice(0, 3)) console.error(`  - ${f}`);
+
+    const all = failures.join(' ');
+    if (/credit balance/i.test(all)) {
+      console.error('');
+      console.error('  This is an Anthropic billing problem, not a code problem.');
+      console.error('  Top up at console.anthropic.com -> Plans & Billing, then run again.');
+    } else if (/api[_ ]?key|authentication|401/i.test(all)) {
+      console.error('');
+      console.error('  Looks like ANTHROPIC_API_KEY is missing or invalid.');
+    }
+    process.exit(1);
+  }
+
+  if (errored > 0) {
+    console.error(`Warning: ${errored} of ${enabled.length} venture(s) errored but others succeeded.`);
+  }
 }
 
 main().catch((e) => { console.error('Fatal:', e); process.exit(1); });
