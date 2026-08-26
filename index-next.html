@@ -913,11 +913,14 @@ async function sheetActivity(){
   state.sheet = { type:"activity" };
   const seen = state.seenAt;
   const KIND = {
-    comment: a => `left a note`,
-    note:    a => `updated the <b>${esc(state.byId[a.project_id]?.name || "")}</b> note`,
-    done:    a => `finished a task`,
-    added:   a => `added a task`,
-    job:     a => `ran a job`,
+    comment:  () => `left a note on`,
+    note:     a  => `updated the <b>${esc(state.byId[a.project_id]?.name || "")}</b> note`,
+    done:     () => `finished`,
+    added:    () => `added`,
+    started:  () => `started`,
+    accepted: () => `accepted`,
+    edited:   () => `edited`,
+    job:      () => `ran a job`,
   };
   openSheet(`<h3>Activity</h3><div class="sub">What happened while you were away.</div>` +
     (state.activity.length ? state.activity.map(a => {
@@ -1020,9 +1023,9 @@ async function patchTask(id, patch){
   if (error){ toast("Save failed: " + error.message); state.loaded = false; await loadAll(); renderList(); }
 }
 
-async function logActivity(project_id, kind, task_id, summary){
-  await sb.from("activity").insert({ project_id, kind, task_id, summary: summary || "" });
-}
+/* Activity rows are written by database TRIGGERS (migration 003), not here.
+   That way the agent, the worker and anything typed into the SQL editor all
+   produce the same feed — and nothing double-logs. */
 
 document.addEventListener("click", async (e) => {
   const btn = e.target.closest("[data-act]"); if (!btn) return;
@@ -1034,7 +1037,6 @@ document.addEventListener("click", async (e) => {
     const t = state.tasks.find(x => x.id === id); if (!t) return;
     const next = t.status === "done" ? "todo" : "done";
     await patchTask(id, { status: next });
-    if (next === "done") await logActivity(t.project_id, "done", id, t.title);
     return toast(next === "done" ? "Done" : "Reopened");
   }
   if (act === "start"){
@@ -1097,7 +1099,6 @@ document.addEventListener("click", async (e) => {
     if (error) return toast("Could not save note: " + error.message);
     state.notes[id] = { project_id: id, body, updated_by: state.uid, updated_at: new Date().toISOString() };
     state.editNote = null;
-    await logActivity(id, "note", null, "Updated the venture note");
     renderList(); return toast("Note saved");
   }
 

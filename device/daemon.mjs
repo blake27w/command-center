@@ -37,6 +37,7 @@ import { hostname, uptime } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnDue } from '../agent/recurrence.js';
+import { runDigest, digestConfigured } from './digest.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -49,6 +50,7 @@ const DEVICE_ID     = process.env.DEVICE_ID     || 'mac-mini';
 const DEVICE_LABEL  = process.env.DEVICE_LABEL  || 'Mac mini (home)';
 const HEARTBEAT_MS  = int(process.env.HEARTBEAT_SECONDS, 30) * 1000;
 const SWEEP_MS      = int(process.env.SWEEP_SECONDS, 60) * 1000;
+const DIGEST_MS     = int(process.env.DIGEST_CHECK_MINUTES, 5) * 60 * 1000;
 const LOG_FILE      = process.env.LOG_FILE || join(HERE, 'logs', 'daemon.log');
 const LOG_MAX_BYTES = int(process.env.LOG_MAX_MB, 8) * 1024 * 1024;
 const VERSION       = '1.0.0';
@@ -110,6 +112,7 @@ function log(level, msg, extra) {
 // --------------------------------------------------------------------------
 const HANDLERS = {
   'device.ping':      handlePing,
+  'digest.send':      () => runDigest(sb, { log: (m) => log('info', m), force: true }),
   'recurrence.spawn': handleRecurrenceSpawn,
   'agent.run':        (job) => runWorkload('agent.run', job, agentArgs(job)),
   'alpha.collect':    (job) => runWorkload('alpha.collect', job),
@@ -276,6 +279,18 @@ await beat();
 subscribe();
 setInterval(beat, HEARTBEAT_MS);
 setInterval(sweep, SWEEP_MS);
+
+// Activity digests. The per-person min_gap_minutes in notify_state does the
+// real rate limiting; this timer only decides how often we bother to look.
+if (digestConfigured()) {
+  log('info', `digest enabled — checking every ${DIGEST_MS / 60000}m`);
+  setInterval(() => {
+    runDigest(sb, { log: (m) => log('info', m) })
+      .catch(e => log('error', 'digest failed', String(e.message || e)));
+  }, DIGEST_MS);
+} else {
+  log('info', 'digest disabled — set RESEND_API_KEY to turn it on');
+}
 
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, async () => {
