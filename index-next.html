@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F2EDE1" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Command Center" />
+<title>Command Center</title>
+
+<!-- No manifest link on purpose: this runs BESIDE index.html while you try it.
+     When it becomes index.html, add back:
+       <link rel="manifest" href="manifest.webmanifest" />  -->
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<style>
+:root{
+  --paper:#F2EDE1; --surface:#FBF8F0; --ink:#211D17; --khaki:#8C846F;
+  --line:#DAD2BF; --amber:#C0792A; --gold:#B0863A; --oxblood:#80332E; --green:#4F6B3E;
+  --shadow: 0 1px 0 rgba(33,29,23,.04), 0 6px 18px rgba(33,29,23,.05);
+  --sunk:#EAE3D2;
+}
+*{ box-sizing:border-box; }
+[hidden]{ display:none !important; }
+html,body{ margin:0; padding:0; }
+body{
+  background:var(--paper); color:var(--ink);
+  font-family:'Archivo', system-ui, sans-serif; font-size:15px; line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{ font-family:'JetBrains Mono', ui-monospace, monospace; font-variant-numeric:tabular-nums; }
+button{ font-family:inherit; cursor:pointer; }
+:focus-visible{ outline:2.5px solid var(--amber); outline-offset:2px; border-radius:6px; }
+
+/* ---------- sign in ---------- */
+.signin{ min-height:100dvh; display:grid; place-items:center; padding:24px; }
+.signin .box{ background:var(--surface); border:1px solid var(--line); border-radius:14px;
+  padding:30px 26px; max-width:400px; width:100%; box-shadow:var(--shadow); }
+.signin h1{ font-family:'Fraunces',serif; font-weight:600; font-size:26px; margin:0 0 6px; }
+.signin p{ color:var(--khaki); font-size:14px; margin:0 0 20px; }
+.signin input{ width:100%; border:1px solid var(--line); background:var(--paper); color:var(--ink);
+  border-radius:10px; padding:12px; font-size:16px; font-family:inherit; margin-bottom:10px; }
+.signin button{ width:100%; border:none; background:var(--oxblood); color:#fff; font-weight:700;
+  border-radius:10px; padding:12px; font-size:15px; }
+.signin button:disabled{ background:var(--line); color:var(--khaki); }
+.msg{ font-size:13px; margin-top:11px; min-height:18px; }
+.msg.ok{ color:var(--green); } .msg.err{ color:var(--oxblood); }
+
+/* ---------- shell ---------- */
+.app{ max-width:760px; margin:0 auto; min-height:100dvh; display:flex; flex-direction:column; padding-bottom:132px; }
+header.top{ position:sticky; top:0; z-index:20; background:var(--paper); border-bottom:1px solid var(--line); padding:14px 16px 0; }
+.brand{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.brand h1{ font-family:'Fraunces',serif; font-weight:600; font-size:22px; margin:0; letter-spacing:-.01em; }
+.brand .right{ display:flex; align-items:center; gap:7px; }
+.iconbtn{ border:1px solid var(--line); background:var(--surface); color:var(--khaki);
+  width:34px; height:34px; border-radius:9px; display:grid; place-items:center; padding:0; }
+.iconbtn:hover{ color:var(--ink); border-color:var(--khaki); }
+.iconbtn.on{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
+.iconbtn svg{ width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.avatar{ width:28px; height:28px; border-radius:50%; display:grid; place-items:center; font-size:10.5px; font-weight:700; color:#fff; }
+.bellwrap{ position:relative; }
+.belldot{ position:absolute; top:-3px; right:-3px; min-width:16px; height:16px; border-radius:8px;
+  background:var(--oxblood); color:#fff; font-size:10px; font-weight:700; display:grid; place-items:center;
+  font-family:'JetBrains Mono',monospace; padding:0 4px; border:2px solid var(--paper); }
+.devdot{ width:7px; height:7px; border-radius:50%; background:var(--line); flex:0 0 auto; }
+.devdot.up{ background:var(--green); }
+
+.searchwrap{ margin-top:11px; }
+.searchwrap input{ width:100%; border:1px solid var(--line); background:var(--surface); color:var(--ink);
+  border-radius:10px; padding:10px 12px; font-size:15px; font-family:inherit; }
+
+nav.tabs{ display:flex; gap:2px; margin-top:11px; }
+nav.tabs button{ border:none; background:none; padding:8px 9px 10px; font-size:14px; font-weight:600;
+  color:var(--khaki); border-bottom:2.5px solid transparent; white-space:nowrap; }
+nav.tabs button.active{ color:var(--ink); border-bottom-color:var(--oxblood); }
+.badge{ display:inline-block; min-width:18px; padding:1px 5px; margin-left:5px; border-radius:9px;
+  background:var(--oxblood); color:#fff; font-size:11px; font-weight:600; text-align:center;
+  font-family:'JetBrains Mono',monospace; vertical-align:middle; }
+.badge.zero{ background:var(--line); color:var(--khaki); }
+
+.ventures{ display:flex; gap:6px; margin-top:10px; padding-bottom:11px; overflow-x:auto; scrollbar-width:none; }
+.ventures::-webkit-scrollbar{ display:none; }
+.chip{ flex:0 0 auto; display:inline-flex; align-items:center; gap:6px; padding:6px 11px; border-radius:20px;
+  border:1px solid var(--line); background:var(--surface); color:var(--ink); font-size:13px; font-weight:600; white-space:nowrap; }
+.chip.active{ color:#fff; border-color:transparent; }
+.chip.dim{ opacity:.45; }
+.cdot{ width:7px; height:7px; border-radius:50%; flex:0 0 auto; }
+.ccount{ font-family:'JetBrains Mono',monospace; font-size:11px; opacity:.75; }
+
+main{ padding:14px 16px 0; display:flex; flex-direction:column; gap:9px; }
+.sec{ display:flex; align-items:center; gap:9px; margin:12px 0 2px; font-size:11px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.09em; color:var(--khaki); }
+.sec:first-child{ margin-top:0; }
+.sec .rule{ flex:1; height:1px; background:var(--line); }
+.sec .n{ font-family:'JetBrains Mono',monospace; letter-spacing:0; }
+
+/* ---------- cards ---------- */
+.card{ background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--khaki);
+  border-radius:10px; padding:11px 12px; display:flex; gap:11px; align-items:flex-start;
+  box-shadow:var(--shadow); position:relative; }
+.card.done{ opacity:.58; }
+.card.doing{ background:#FFFDF6; }
+.check{ flex:0 0 auto; width:21px; height:21px; border-radius:6px; border:1.5px solid var(--line);
+  background:var(--paper); margin-top:1px; display:grid; place-items:center; padding:0; }
+.check svg{ width:12px; height:12px; fill:none; stroke:var(--surface); stroke-width:3; stroke-linecap:round; stroke-linejoin:round; }
+.card.done .check{ background:var(--green); border-color:var(--green); }
+.body{ flex:1; min-width:0; }
+.title{ font-size:14.5px; font-weight:500; line-height:1.35; overflow-wrap:anywhere; cursor:pointer; }
+.card.done .title{ text-decoration:line-through; text-decoration-color:var(--khaki); }
+.note{ font-size:12.5px; color:var(--khaki); margin-top:3px; line-height:1.4; }
+.meta{ display:flex; align-items:center; gap:7px; margin-top:7px; flex-wrap:wrap; }
+.tag{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+  padding:2.5px 7px; border-radius:5px; background:var(--sunk); color:var(--khaki); }
+.tag.pri-high{ background:rgba(128,51,46,.11); color:var(--oxblood); }
+.tag.pri-med{ background:rgba(192,121,42,.12); color:#8A5518; }
+.tag.pri-low{ background:var(--sunk); color:var(--khaki); }
+.tag.v{ color:#fff; }
+.tag.rec{ background:rgba(62,90,107,.12); color:#2E4552; display:inline-flex; align-items:center; gap:4px; }
+.tag.rec svg{ width:10px; height:10px; fill:none; stroke:currentColor; stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; }
+.due{ font-size:11.5px; color:var(--khaki); font-family:'JetBrains Mono',monospace; }
+.due.over{ color:var(--oxblood); font-weight:600; }
+.due.today{ color:var(--amber); font-weight:600; }
+.cchip{ display:inline-flex; align-items:center; gap:4px; font-size:11px; color:var(--khaki);
+  font-family:'JetBrains Mono',monospace; }
+.cchip svg{ width:12px; height:12px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.start{ position:absolute; top:9px; right:9px; border:none; background:none; padding:3px; color:var(--line); }
+.start svg{ width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.start.on{ color:var(--amber); } .start.on svg{ fill:currentColor; }
+.card:hover .start{ color:var(--khaki); } .card:hover .start.on{ color:var(--amber); }
+.subline{ display:flex; align-items:center; gap:7px; margin-top:7px; }
+.subbar{ flex:0 0 62px; height:4px; border-radius:2px; background:var(--sunk); overflow:hidden; }
+.subbar i{ display:block; height:100%; background:var(--green); }
+.subtxt{ font-size:11px; color:var(--khaki); font-family:'JetBrains Mono',monospace; }
+
+.commit{ border:1px dashed var(--line); border-radius:10px; padding:13px; text-align:center; color:var(--khaki); font-size:13px; }
+.commit b{ color:var(--ink); }
+.streak{ display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--line);
+  border-radius:10px; padding:11px 13px; box-shadow:var(--shadow); }
+.streak .big{ font-family:'Fraunces',serif; font-size:26px; font-weight:600; line-height:1; }
+.streak .lbl{ font-size:12.5px; color:var(--khaki); line-height:1.3; }
+
+/* ---------- inbox ---------- */
+.triagebar{ display:flex; align-items:center; gap:8px; background:var(--ink); color:var(--paper);
+  border-radius:10px; padding:9px 11px; font-size:13px; }
+.triagebar .n{ font-family:'JetBrains Mono',monospace; font-weight:600; }
+.triagebar .sp{ flex:1; }
+.tbtn{ border:none; border-radius:7px; padding:6px 11px; font-size:12.5px; font-weight:600; }
+.tbtn.acc{ background:var(--green); color:#fff; }
+.tbtn.dis{ background:rgba(242,237,225,.15); color:var(--paper); }
+.sugacts{ display:flex; gap:6px; margin-top:9px; flex-wrap:wrap; }
+.sugacts button{ border:1px solid var(--line); background:var(--paper); color:var(--ink);
+  border-radius:7px; padding:5px 10px; font-size:12.5px; font-weight:600; }
+.sugacts button.y{ background:var(--green); border-color:var(--green); color:#fff; }
+.sugacts button.n{ color:var(--khaki); }
+
+/* ---------- pulse ---------- */
+.pulse{ display:flex; flex-direction:column; gap:8px; }
+.prow{ background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:12px 13px;
+  box-shadow:var(--shadow); display:flex; flex-direction:column; gap:10px; }
+.phead{ display:flex; align-items:center; gap:8px; }
+.pname{ font-weight:600; font-size:14.5px; }
+.pflag{ font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.07em;
+  padding:2.5px 7px; border-radius:5px; margin-left:auto; }
+.pflag.stall{ background:rgba(128,51,46,.11); color:var(--oxblood); }
+.pflag.warm{ background:rgba(192,121,42,.13); color:#8A5518; }
+.pflag.hot{ background:rgba(79,107,62,.13); color:var(--green); }
+.pstats{ display:flex; gap:15px; font-size:12px; color:var(--khaki); flex-wrap:wrap; }
+.pstats b{ color:var(--ink); font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; }
+.target{ border-top:1px solid var(--line); padding-top:10px; display:flex; flex-direction:column; gap:6px; }
+.thead{ display:flex; align-items:baseline; gap:8px; font-size:12.5px; }
+.tlabel{ color:var(--khaki); }
+.tnum{ margin-left:auto; font-family:'JetBrains Mono',monospace; font-weight:600; font-size:13px; }
+.tnum small{ color:var(--khaki); font-weight:400; }
+.tbar{ height:7px; border-radius:4px; background:var(--sunk); overflow:hidden; }
+.tbar i{ display:block; height:100%; border-radius:4px; }
+.tfoot{ font-size:11.5px; color:var(--khaki); font-family:'JetBrains Mono',monospace; }
+.tfoot.tight{ color:var(--oxblood); font-weight:600; }
+.runbtn{ border:1px solid var(--line); background:var(--paper); color:var(--ink); border-radius:7px;
+  padding:5px 10px; font-size:12px; font-weight:600; margin-left:auto; }
+.runbtn:disabled{ color:var(--khaki); }
+
+/* ---------- venture note ---------- */
+.vnote{ background:#FFFDF6; border:1px solid var(--line); border-left:3px solid var(--amber);
+  border-radius:10px; padding:12px 13px; box-shadow:var(--shadow); }
+.vnote .vh{ display:flex; align-items:center; gap:7px; font-size:11px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.08em; color:var(--khaki); margin-bottom:7px; }
+.vnote .vh svg{ width:13px; height:13px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.vnote .vh button{ margin-left:auto; border:none; background:none; color:var(--khaki); font-size:11px;
+  text-decoration:underline; text-transform:none; letter-spacing:0; font-weight:600; padding:0; }
+.vnote .vt{ font-size:13.5px; line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere; }
+.vnote .vf{ font-size:11px; color:var(--khaki); margin-top:8px; font-family:'JetBrains Mono',monospace; }
+.vnote textarea{ width:100%; border:1px solid var(--line); background:var(--surface); color:var(--ink);
+  border-radius:9px; padding:10px; font-size:13.5px; font-family:inherit; min-height:96px; resize:vertical; }
+.vnote .va{ display:flex; gap:7px; margin-top:8px; }
+.vnote .va button{ border:none; border-radius:8px; padding:7px 13px; font-weight:600; font-size:12.5px; }
+.vnote .va .sv{ background:var(--green); color:#fff; }
+.vnote .va .cn{ background:transparent; color:var(--khaki); text-decoration:underline; }
+
+/* ---------- sheets ---------- */
+.scrim{ position:fixed; inset:0; background:rgba(33,29,23,.42); z-index:40; opacity:0; pointer-events:none; transition:opacity .18s; }
+.scrim.show{ opacity:1; pointer-events:auto; }
+.sheet{ position:fixed; left:0; right:0; bottom:0; z-index:50; background:var(--paper);
+  border-radius:16px 16px 0 0; padding:18px 16px calc(20px + env(safe-area-inset-bottom));
+  max-width:760px; margin:0 auto; max-height:86dvh; overflow-y:auto;
+  transform:translateY(102%); transition:transform .22s ease; box-shadow:0 -8px 30px rgba(33,29,23,.14); }
+.sheet.show{ transform:translateY(0); }
+.sheet h3{ font-family:'Fraunces',serif; font-weight:600; font-size:19px; margin:0 0 3px; padding-right:34px; }
+.sheet .sub{ color:var(--khaki); font-size:12.5px; margin-bottom:15px; }
+.sheet .close{ position:absolute; top:15px; right:14px; border:none; background:none; color:var(--khaki); font-size:22px; line-height:1; padding:4px; }
+
+.row{ display:flex; align-items:center; gap:11px; padding:11px 0; border-bottom:1px solid var(--line); }
+.row:last-child{ border-bottom:none; }
+.row .grow{ flex:1; min-width:0; }
+.row .nm{ font-weight:600; font-size:14px; }
+.row .rl{ font-size:12px; color:var(--khaki); margin-top:1px; }
+.mini{ display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.05em; padding:2px 6px; border-radius:4px; color:#fff; }
+.tog{ width:42px; height:24px; border-radius:12px; background:var(--line); border:none; position:relative; flex:0 0 auto; transition:background .16s; }
+.tog i{ position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:var(--surface); transition:left .16s; box-shadow:0 1px 3px rgba(0,0,0,.2); }
+.tog.on{ background:var(--green); } .tog.on i{ left:21px; }
+.stepper{ display:flex; align-items:center; border:1px solid var(--line); border-radius:8px; overflow:hidden; flex:0 0 auto; }
+.stepper button{ border:none; background:var(--surface); color:var(--ink); width:28px; height:28px; font-size:16px; line-height:1; padding:0; }
+.stepper button:disabled{ color:var(--line); }
+.stepper span{ width:26px; text-align:center; font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; }
+
+.sub{ display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); }
+.sub .cb{ width:19px; height:19px; border-radius:5px; border:1.5px solid var(--line); background:var(--surface);
+  display:grid; place-items:center; padding:0; flex:0 0 auto; }
+.sub .cb svg{ width:11px; height:11px; fill:none; stroke:var(--surface); stroke-width:3; stroke-linecap:round; stroke-linejoin:round; }
+.sub.on .cb{ background:var(--green); border-color:var(--green); }
+.sub .st{ font-size:14px; flex:1; }
+.sub.on .st{ color:var(--khaki); text-decoration:line-through; }
+.addsub{ display:flex; gap:7px; margin-top:11px; }
+.addsub input{ flex:1; border:1px solid var(--line); background:var(--surface); color:var(--ink);
+  border-radius:8px; padding:9px 10px; font-size:14px; font-family:inherit; }
+.addsub button{ border:none; background:var(--ink); color:var(--paper); border-radius:8px; padding:9px 14px; font-weight:600; font-size:13px; }
+
+.thread{ display:flex; flex-direction:column; gap:11px; margin-top:4px; }
+.cmt{ display:flex; gap:9px; }
+.cmt .avatar{ width:26px; height:26px; font-size:9.5px; flex:0 0 auto; }
+.cmt .bub{ flex:1; min-width:0; background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:9px 11px; }
+.cmt.mine .bub{ background:var(--sunk); }
+.cmt .hd{ display:flex; align-items:baseline; gap:7px; margin-bottom:3px; }
+.cmt .who{ font-weight:600; font-size:12.5px; }
+.cmt .when{ font-size:11px; color:var(--khaki); font-family:'JetBrains Mono',monospace; }
+.cmt .tx{ font-size:13.5px; line-height:1.45; overflow-wrap:anywhere; white-space:pre-wrap; }
+.cbox{ display:flex; gap:7px; margin-top:13px; }
+.cbox textarea{ flex:1; border:1px solid var(--line); background:var(--surface); color:var(--ink);
+  border-radius:9px; padding:9px 11px; font-size:14px; font-family:inherit; resize:vertical; min-height:44px; }
+.cbox button{ border:none; background:var(--ink); color:var(--paper); border-radius:9px; padding:0 15px; font-weight:600; font-size:13px; }
+
+.act{ display:flex; gap:10px; padding:11px 0; border-bottom:1px solid var(--line); }
+.act:last-child{ border-bottom:none; }
+.act.unread{ background:linear-gradient(90deg, rgba(192,121,42,.09), transparent 60%); margin:0 -8px; padding:11px 8px; }
+.act .avatar{ width:26px; height:26px; font-size:9.5px; flex:0 0 auto; }
+.act .grow{ flex:1; min-width:0; }
+.act .ln{ font-size:13.5px; line-height:1.4; }
+.act .qt{ color:var(--khaki); font-style:italic; }
+.act .mt{ display:flex; align-items:center; gap:7px; margin-top:4px; }
+.act .tm{ font-size:11px; color:var(--khaki); font-family:'JetBrains Mono',monospace; }
+
+.field{ margin-bottom:12px; }
+.field label{ display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--khaki); margin-bottom:5px; }
+.field input, .field select, .field textarea{ width:100%; border:1px solid var(--line); background:var(--surface);
+  color:var(--ink); border-radius:9px; padding:10px; font-size:15px; font-family:inherit; }
+.field textarea{ min-height:70px; resize:vertical; }
+.actions{ display:flex; gap:8px; margin-top:6px; }
+.actions button{ border:none; border-radius:9px; padding:10px 15px; font-weight:600; font-size:14px; }
+.actions .save{ background:var(--ink); color:var(--paper); flex:1; }
+.actions .del{ background:transparent; color:var(--oxblood); border:1px solid var(--line); }
+
+.empty{ text-align:center; padding:46px 20px; color:var(--khaki); }
+.empty .big{ font-family:'Fraunces',serif; font-size:21px; color:var(--ink); margin-bottom:5px; }
+
+.quickbar{ position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--paper);
+  border-top:1px solid var(--line); padding:10px 16px calc(10px + env(safe-area-inset-bottom)); }
+.quickbar .inner{ max-width:760px; margin:0 auto; display:flex; flex-direction:column; gap:7px; }
+.qrow{ display:flex; gap:7px; }
+.qrow select, .qrow input{ border:1px solid var(--line); background:var(--surface); color:var(--ink);
+  border-radius:9px; padding:10px; font-size:15px; font-family:inherit; }
+.qrow select{ flex:0 0 auto; max-width:34vw; font-weight:600; font-size:13.5px; }
+.qrow input{ flex:1; min-width:0; }
+.qrow .add{ border:none; background:var(--oxblood); color:#fff; font-weight:700; border-radius:9px; padding:10px 15px; }
+.qrow .add:disabled{ background:var(--line); color:var(--khaki); }
+.qtools{ display:flex; gap:14px; align-items:center; }
+.qtools button{ background:none; border:none; color:var(--khaki); font-size:12px; text-decoration:underline; padding:0; }
+.qtools .devstat{ margin-left:auto; display:flex; align-items:center; gap:5px; font-size:11px; color:var(--khaki); font-family:'JetBrains Mono',monospace; text-decoration:none; }
+
+.toast{ position:fixed; left:50%; bottom:132px; transform:translateX(-50%) translateY(18px);
+  background:var(--ink); color:var(--surface); padding:10px 16px; border-radius:24px; font-size:13.5px;
+  z-index:60; opacity:0; pointer-events:none; transition:opacity .18s, transform .18s; box-shadow:var(--shadow); }
+.toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+@media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
+@media (max-width:420px){
+  .brand h1{ font-size:20px; }
+  nav.tabs button{ padding:8px 6px 10px; font-size:13px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== sign in ===== -->
+<div id="signin" class="signin" hidden>
+  <div class="box">
+    <h1>Command Center</h1>
+    <p>Sign in with a link sent to your email.</p>
+    <form id="signin-form">
+      <input id="email" type="email" placeholder="you@example.com" autocomplete="email" required />
+      <button id="send-link" type="submit">Send sign-in link</button>
+    </form>
+    <div id="signin-msg" class="msg"></div>
+  </div>
+</div>
+
+<!-- ===== app ===== -->
+<div id="app" class="app" hidden>
+  <header class="top">
+    <div class="brand">
+      <h1>Command Center</h1>
+      <div class="right">
+        <button class="iconbtn" id="searchbtn" title="Search" aria-label="Search">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        </button>
+        <div class="bellwrap">
+          <button class="iconbtn" id="bellbtn" title="Activity" aria-label="Activity">
+            <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg>
+          </button>
+          <span class="belldot" id="belldot" hidden>0</span>
+        </div>
+        <button class="iconbtn" id="menubtn" title="More" aria-label="More">
+          <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"></circle><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"></circle><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"></circle></svg>
+        </button>
+        <div class="avatar" id="me" style="background:#80332E" title=""></div>
+      </div>
+    </div>
+
+    <div class="searchwrap" id="searchwrap" hidden>
+      <input id="search" type="search" placeholder="Search every venture…" autocomplete="off" />
+    </div>
+
+    <nav class="tabs" role="tablist">
+      <button data-view="today" class="active" role="tab">Today</button>
+      <button data-view="board" role="tab">Board</button>
+      <button data-view="inbox" role="tab">Inbox<span id="inbox-badge" class="badge">0</span></button>
+      <button data-view="pulse" role="tab">Pulse</button>
+    </nav>
+
+    <div id="ventures" class="ventures" aria-label="Filter by venture"></div>
+  </header>
+
+  <main id="list" aria-live="polite"></main>
+</div>
+
+<!-- ===== quick add ===== -->
+<div id="quickbar" class="quickbar" hidden>
+  <div class="inner">
+    <div class="qrow">
+      <select id="qa-project" aria-label="Venture"></select>
+      <input id="qa-title" type="text" placeholder="Add a task…" autocomplete="off" />
+      <button class="add" id="qa-add" disabled>Add</button>
+    </div>
+    <div class="qtools">
+      <button type="button" data-panel="recurring">Recurring</button>
+      <button type="button" data-panel="people">People</button>
+      <button type="button" data-panel="agent">Agent</button>
+      <button type="button" id="signout">Sign out</button>
+      <span class="devstat" id="devstat"><span class="devdot" id="devdot"></span><span id="devtext">—</span></span>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ===========================================================================
+   Command Center — next
+   Runs BESIDE index.html against the same database. Everything here assumes
+   migration 002 has been applied: membership, subtasks, comments, venture
+   notes, contacts, targets, recurrences, venture_settings, devices, jobs,
+   activity.
+
+   CONFIG — URL + publishable key are safe in the client; RLS gates every row
+   to ventures you are a member of. The secret key NEVER goes here.
+   =========================================================================== */
+const SUPABASE_URL      = "https://xlhiqdloztedxdwappdm.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_henYwMuQuiLxQKtM8ABAZQ_44zlh-q_";
+
+const CDN_MISSING = !(window.supabase && window.supabase.createClient);
+const sb = CDN_MISSING ? null : window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+});
+
+const PRI_ORDER = { high: 0, med: 1, low: 2 };
+const PRI_LABEL = { high: "High", med: "Med", low: "Low" };
+const SHORT = { alpha:"Alpha", vantyx:"Vantyx", land:"Land", tcb:"TCB", edge:"Edge", pool:"Pool", scout:"Scout", rackpay:"RackPay" };
+
+const state = {
+  session: null, uid: null,
+  projects: [], byId: {},
+  tasks: [], subs: {}, cmtCount: {},
+  notes: {}, contacts: [], targets: [], recur: [], settings: {},
+  activity: [], seenAt: null, devices: [],
+  view: "today", venture: "all", q: "", searchOpen: false,
+  sel: new Set(), sheet: null, editNote: null, loaded: false, channels: [],
+};
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(m){ const e=$("toast"); e.textContent=m; e.classList.add("show"); clearTimeout(e._t); e._t=setTimeout(()=>e.classList.remove("show"),2200); }
+const ymd = (d) => d.toISOString().slice(0,10);
+const isOpen = (t) => t.status === "todo" || t.status === "doing";
+
+/* ---------- people display ----------
+   Only the signed-in user's own email is known to the client; other members
+   are auth.users rows the browser cannot read. So anyone else shows as a
+   stable two-letter badge derived from their id. Honest, and it never guesses
+   a name.                                                                   */
+const PALETTE = ["#80332E","#3E5A6B","#4F6B3E","#C0792A","#6B4F8C","#8C846F"];
+function person(id){
+  if (!id) return { initials:"··", name:"Unknown", color:"#8C846F" };
+  if (id === state.uid) {
+    const em = state.session?.user?.email || "you";
+    return { initials: em.slice(0,2).toUpperCase(), name:"You", color:"#80332E" };
+  }
+  let h = 0; for (const ch of id) h = (h*31 + ch.charCodeAt(0)) >>> 0;
+  return { initials: id.replace(/[^a-z0-9]/gi,"").slice(0,2).toUpperCase(), name:"Partner", color: PALETTE[h % PALETTE.length] };
+}
+const avatar = (id) => { const p = person(id);
+  return `<div class="avatar" style="background:${p.color}" title="${esc(p.name)}">${esc(p.initials)}</div>`; };
+
+function ago(ts){
+  if (!ts) return "";
+  const s = (Date.now() - new Date(ts).getTime())/1000;
+  if (s < 60) return "just now";
+  if (s < 3600) return Math.floor(s/60)+"m";
+  if (s < 86400) return Math.floor(s/3600)+"h";
+  return Math.floor(s/86400)+"d";
+}
+function dueLabel(d){
+  if (!d) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const days = Math.round((new Date(d+"T00:00:00") - today)/86400000);
+  if (days < 0) return { txt:`${-days}d overdue`, cls:"over" };
+  if (days === 0) return { txt:"today", cls:"today" };
+  if (days === 1) return { txt:"tomorrow", cls:"" };
+  return { txt:`in ${days}d`, cls:"" };
+}
+
+/* ===========================================================================
+   Boot / auth
+   =========================================================================== */
+async function boot(){
+  if (CDN_MISSING) {
+    document.body.innerHTML = '<div class="signin"><div class="box"><h1>Offline</h1><p>The Supabase client failed to load. Check your connection and reload.</p></div></div>';
+    return;
+  }
+  const { data } = await sb.auth.getSession();
+  state.session = data.session;
+  state.uid = data.session?.user?.id ?? null;
+  wireAuth();
+  sb.auth.onAuthStateChange((_e, session) => {
+    const was = !!state.session;
+    state.session = session; state.uid = session?.user?.id ?? null;
+    if (!!session !== was) { state.loaded = false; render(); }
+  });
+  await render();
+}
+
+function wireAuth(){
+  $("signin-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = $("email").value.trim(); const msg = $("signin-msg");
+    if (!email) return;
+    $("send-link").disabled = true; msg.className = "msg"; msg.textContent = "Sending…";
+    const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.href.split("#")[0] } });
+    $("send-link").disabled = false;
+    if (error) { msg.className = "msg err"; msg.textContent = error.message; }
+    else { msg.className = "msg ok"; msg.textContent = "Check your email for the sign-in link."; }
+  });
+  $("signout").addEventListener("click", async () => { await sb.auth.signOut(); });
+}
+
+/* ===========================================================================
+   Load
+   =========================================================================== */
+async function loadAll(){
+  const q = [
+    sb.from("projects").select("*").order("sort"),
+    sb.from("tasks").select("*"),
+    sb.from("subtasks").select("id,task_id,title,done,sort").order("sort"),
+    sb.from("task_comments").select("id,task_id"),
+    sb.from("venture_notes").select("*"),
+    sb.from("contacts").select("*"),
+    sb.from("targets").select("*").eq("active", true).order("sort"),
+    sb.from("recurrences").select("*").order("next_due"),
+    sb.from("venture_settings").select("*"),
+    sb.from("activity").select("*").order("created_at", { ascending:false }).limit(60),
+    sb.from("activity_reads").select("seen_at").maybeSingle(),
+    sb.from("devices").select("*"),
+  ];
+  const r = await Promise.all(q);
+  const [projects, tasks, subs, cmts, notes, contacts, targets, recur, settings, activity, reads, devices] = r;
+
+  for (const x of r) if (x.error && x.error.code !== "PGRST116") console.warn(x.error.message);
+  if (projects.error) { toast("Could not load: " + projects.error.message); return; }
+
+  state.projects = projects.data || [];
+  state.byId = Object.fromEntries(state.projects.map(p => [p.id, p]));
+  state.tasks = tasks.data || [];
+
+  state.subs = {};
+  for (const s of subs.data || []) (state.subs[s.task_id] ||= []).push(s);
+  state.cmtCount = {};
+  for (const c of cmts.data || []) state.cmtCount[c.task_id] = (state.cmtCount[c.task_id] || 0) + 1;
+
+  state.notes = Object.fromEntries((notes.data || []).map(n => [n.project_id, n]));
+  state.contacts = contacts.data || [];
+  state.targets = targets.data || [];
+  state.recur = recur.data || [];
+  state.settings = Object.fromEntries((settings.data || []).map(s => [s.project_id, s]));
+  state.activity = activity.data || [];
+  state.seenAt = reads.data?.seen_at || null;
+  state.devices = devices.data || [];
+
+  fillProjectSelect();
+  state.loaded = true;
+}
+
+const unreadCount = () => state.activity.filter(a =>
+  a.actor !== state.uid && (!state.seenAt || a.created_at > state.seenAt)).length;
+
+/* ===========================================================================
+   Realtime
+   =========================================================================== */
+function setupRealtime(){
+  if (state.channels.length) return;
+  const ch = sb.channel("cc-live")
+    .on("postgres_changes", { event:"*", schema:"public", table:"tasks" }, (p) => {
+      if (p.eventType === "DELETE") state.tasks = state.tasks.filter(t => t.id !== p.old.id);
+      else { const i = state.tasks.findIndex(t => t.id === p.new.id);
+             i === -1 ? state.tasks.push(p.new) : state.tasks[i] = p.new; }
+      renderList();
+    })
+    .on("postgres_changes", { event:"INSERT", schema:"public", table:"activity" }, (p) => {
+      state.activity.unshift(p.new); renderChrome();
+    })
+    .on("postgres_changes", { event:"*", schema:"public", table:"devices" }, (p) => {
+      const i = state.devices.findIndex(d => d.id === p.new?.id);
+      if (p.new) { i === -1 ? state.devices.push(p.new) : state.devices[i] = p.new; }
+      renderDevice();
+    })
+    .on("postgres_changes", { event:"UPDATE", schema:"public", table:"jobs" }, (p) => {
+      if (p.new.status === "done")   toast(`${p.new.kind} finished`);
+      if (p.new.status === "failed") toast(`${p.new.kind} failed: ${(p.new.error||"").slice(0,60)}`);
+    })
+    .subscribe();
+  state.channels.push(ch);
+}
+function teardownRealtime(){ state.channels.forEach(c => sb.removeChannel(c)); state.channels = []; }
+
+/* ===========================================================================
+   Cards
+   =========================================================================== */
+const RECICON = `<svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4"></path><path d="M21 3v5h-5"></path></svg>`;
+const CICON   = `<svg viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.7 8.7 0 0 1-3.9-.9L3 20.5l1.5-4.4A8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4z"></path></svg>`;
+const NOTEICON= `<svg viewBox="0 0 24 24"><path d="M4 4h16v12l-4 4H4z"></path><path d="M20 16h-4v4"></path></svg>`;
+
+function taskCard(t){
+  const p = state.byId[t.project_id] || { color:"#8C846F", name:"?" };
+  const d = dueLabel(t.due);
+  const subs = state.subs[t.id] || [];
+  const done = subs.filter(s => s.done).length;
+  const cc = state.cmtCount[t.id] || 0;
+  const contact = state.contacts.find(c => c.id === t.contact_id);
+
+  const el = document.createElement("div");
+  el.className = "card" + (t.status === "done" ? " done" : "") + (t.status === "doing" ? " doing" : "");
+  el.style.borderLeftColor = p.color;
+  el.innerHTML = `
+    <button class="check" data-act="toggle" data-id="${t.id}" aria-label="Toggle done">
+      <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"></path></svg></button>
+    <div class="body">
+      <div class="title" data-act="open" data-id="${t.id}">${esc(t.title)}</div>
+      ${t.note ? `<div class="note">${esc(t.note)}</div>` : ""}
+      ${subs.length ? `<div class="subline"><div class="subbar"><i style="width:${done/subs.length*100}%"></i></div><span class="subtxt">${done}/${subs.length}</span></div>` : ""}
+      <div class="meta">
+        <span class="tag v" style="background:${p.color}">${esc(shortName(p))}</span>
+        <span class="tag pri-${t.priority}">${PRI_LABEL[t.priority] || "Med"}</span>
+        ${t.status === "doing" ? `<span class="tag" style="background:rgba(192,121,42,.13);color:#8A5518">Doing</span>` : ""}
+        ${t.recurrence_id ? `<span class="tag rec">${RECICON}Repeats</span>` : ""}
+        ${contact ? `<span class="tag">${esc(contact.name)}</span>` : ""}
+        ${d ? `<span class="due ${d.cls}">${d.txt}</span>` : ""}
+        ${cc ? `<span class="cchip">${CICON}${cc}</span>` : ""}
+      </div>
+    </div>
+    ${t.status !== "done" ? `<button class="start ${t.status === "doing" ? "on" : ""}" data-act="start" data-id="${t.id}" aria-label="Commit to today">
+      <svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6.1.8-4.5 4.2 1.2 6.1L12 16.8 6.6 19.7l1.2-6.1L3.3 9.4l6.1-.8z"></path></svg></button>` : ""}`;
+  return el;
+}
+
+function sugCard(t){
+  const p = state.byId[t.project_id] || { color:"#8C846F" };
+  const el = document.createElement("div");
+  el.className = "card";
+  el.style.borderLeftColor = p.color;
+  el.innerHTML = `
+    <button class="check" data-act="sel" data-id="${t.id}" aria-label="Select"
+      ${state.sel.has(t.id) ? 'style="background:var(--amber);border-color:var(--amber)"' : ""}>
+      <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"></path></svg></button>
+    <div class="body">
+      <div class="title" data-act="open" data-id="${t.id}">${esc(t.title)}</div>
+      ${t.note ? `<div class="note">${esc(t.note)}</div>` : ""}
+      <div class="meta">
+        <span class="tag v" style="background:${p.color}">${esc(shortName(p))}</span>
+        <span class="tag pri-${t.priority}">${PRI_LABEL[t.priority] || "Med"}</span>
+        <span class="due">${esc(ago(t.created_at))} ago</span>
+      </div>
+      <div class="sugacts">
+        <button class="y" data-act="acc" data-id="${t.id}">Accept</button>
+        <button data-act="accdo" data-id="${t.id}">Accept + Today</button>
+        <button class="n" data-act="dis" data-id="${t.id}">Dismiss</button>
+      </div>
+    </div>`;
+  return el;
+}
+
+const shortName = (p) => SHORT[p.id] || String(p.name || "").split(/\s|&/)[0];
+function sec(label, n){
+  const d = document.createElement("div"); d.className = "sec";
+  d.innerHTML = `<span>${esc(label)}</span>${n !== undefined ? `<span class="n">${n}</span>` : ""}<span class="rule"></span>`;
+  return d;
+}
+function empty(list, big, sub){
+  const e = document.createElement("div"); e.className = "empty";
+  e.innerHTML = `<div class="big">${esc(big)}</div><div>${esc(sub)}</div>`; list.appendChild(e);
+}
+
+/* ===========================================================================
+   Views
+   =========================================================================== */
+const matchQ = (t) => !state.q ||
+  (t.title + " " + (t.note || "") + " " + (state.byId[t.project_id]?.name || "")).toLowerCase().includes(state.q.toLowerCase());
+const matchV = (t) => state.venture === "all" || t.project_id === state.venture;
+const sortT = (a) => a.slice().sort((x, y) => {
+  const px = PRI_ORDER[x.priority] ?? 1, py = PRI_ORDER[y.priority] ?? 1;
+  if (px !== py) return px - py;
+  const dx = x.due || "9999", dy = y.due || "9999";
+  return dx !== dy ? (dx < dy ? -1 : 1) : ((x.created_at || "") < (y.created_at || "") ? -1 : 1);
+});
+
+function viewToday(list){
+  const open = state.tasks.filter(t => isOpen(t) && matchV(t) && matchQ(t));
+  const doing = open.filter(t => t.status === "doing");
+  const overdue = open.filter(t => t.status !== "doing" && t.due && new Date(t.due + "T00:00:00") < new Date(new Date().toDateString()));
+  const weekAgo = new Date(Date.now() - 7*86400000).toISOString();
+  const doneWeek = state.tasks.filter(t => t.status === "done" && matchV(t) && matchQ(t) && (t.updated_at || "") > weekAgo);
+
+  const strip = document.createElement("div"); strip.className = "streak";
+  strip.innerHTML = `<div><div class="big mono">${doneWeek.length}</div>
+    <div class="lbl">finished this week<br>across ${new Set(doneWeek.map(t => t.project_id)).size} venture(s)</div></div>`;
+  list.appendChild(strip);
+
+  list.appendChild(sec("Committed today", doing.length));
+  if (doing.length) sortT(doing).forEach(t => list.appendChild(taskCard(t)));
+  else { const c = document.createElement("div"); c.className = "commit";
+    c.innerHTML = `Nothing committed yet. Tap the <b>star</b> on any task to pull it here.`; list.appendChild(c); }
+
+  if (overdue.length){ list.appendChild(sec("Overdue", overdue.length)); sortT(overdue).forEach(t => list.appendChild(taskCard(t))); }
+  if (doneWeek.length){ list.appendChild(sec("Finished this week", doneWeek.length)); sortT(doneWeek).slice(0,6).forEach(t => list.appendChild(taskCard(t))); }
+}
+
+function viewBoard(list){
+  if (state.venture !== "all") list.appendChild(vnoteCard(state.venture, state.editNote === state.venture));
+  const open = sortT(state.tasks.filter(t => isOpen(t) && matchV(t) && matchQ(t)));
+  if (!open.length) return empty(list, "Nothing open", "No matching tasks here.");
+  if (state.venture === "all"){
+    for (const p of state.projects){
+      const g = open.filter(t => t.project_id === p.id);
+      if (!g.length) continue;
+      list.appendChild(sec(p.name, g.length));
+      g.forEach(t => list.appendChild(taskCard(t)));
+    }
+  } else open.forEach(t => list.appendChild(taskCard(t)));
+}
+
+function viewInbox(list){
+  const sug = state.tasks.filter(t => t.status === "suggested" && matchV(t) && matchQ(t));
+  if (!sug.length) return empty(list, "Inbox zero", "Every suggestion triaged. The agent drops a new set at 6am.");
+  const bar = document.createElement("div"); bar.className = "triagebar";
+  const n = state.sel.size;
+  bar.innerHTML = n
+    ? `<span class="n">${n}</span><span>selected</span><span class="sp"></span>
+       <button class="tbtn acc" data-act="bacc">Accept</button><button class="tbtn dis" data-act="bdis">Dismiss</button>`
+    : `<span class="n">${sug.length}</span><span>waiting</span><span class="sp"></span>
+       <button class="tbtn dis" data-act="selall">Select all</button>`;
+  list.appendChild(bar);
+  sug.forEach(t => list.appendChild(sugCard(t)));
+}
+
+function viewPulse(list){
+  const FLAG = { hot:["Moving","hot"], warm:["Steady","warm"], stall:["Stalling","stall"] };
+  const wrap = document.createElement("div"); wrap.className = "pulse";
+  const weekAgo = new Date(Date.now() - 7*86400000).toISOString();
+
+  for (const p of state.projects){
+    if (state.venture !== "all" && p.id !== state.venture) continue;
+    const mine = state.tasks.filter(t => t.project_id === p.id);
+    const open = mine.filter(isOpen).length;
+    const week = mine.filter(t => t.status === "done" && (t.updated_at || "") > weekAgo).length;
+    const last = mine.map(t => t.updated_at || t.created_at).filter(Boolean).sort().pop();
+    const days = last ? (Date.now() - new Date(last).getTime())/86400000 : 999;
+    const flag = days < 3 ? "hot" : days < 8 ? "warm" : "stall";
+    const tg = state.targets.filter(t => t.project_id === p.id);
+
+    const el = document.createElement("div"); el.className = "prow";
+    el.innerHTML = `
+      <div class="phead">
+        <span class="cdot" style="background:${p.color};width:9px;height:9px"></span>
+        <span class="pname">${esc(p.name)}</span>
+        <span class="pflag ${FLAG[flag][1]}">${FLAG[flag][0]}</span>
+      </div>
+      <div class="pstats">
+        <span><b>${open}</b> open</span>
+        <span><b>${week}</b> done this week</span>
+        <span>last touched <b>${last ? ago(last) : "never"}</b>${last ? " ago" : ""}</span>
+        <button class="runbtn" data-act="runagent" data-id="${p.id}">Run agent</button>
+      </div>
+      ${tg.map(t => {
+        const pct = Math.min(100, (Number(t.current)/Number(t.goal || 1))*100);
+        const left = t.due ? Math.round((new Date(t.due+"T00:00:00") - new Date(new Date().toDateString()))/86400000) : null;
+        const tight = left !== null && left < 60 && pct < 40;
+        return `<div class="target">
+          <div class="thead"><span class="tlabel">${esc(t.label)}</span>
+            <span class="tnum">${t.current}<small> / ${t.goal} ${esc(t.unit || "")}</small></span></div>
+          <div class="tbar"><i style="width:${pct}%;background:${p.color}"></i></div>
+          <div class="tfoot ${tight ? "tight" : ""}">${Number(t.goal) - Number(t.current)} to go${
+            t.due ? ` · by ${esc(t.due)}${left !== null ? ` · ${left}d left` : ""}` : ""}</div>
+        </div>`; }).join("")}`;
+    wrap.appendChild(el);
+  }
+  list.appendChild(sec("Venture pulse"));
+  list.appendChild(wrap);
+  if (!state.targets.length){
+    const n = document.createElement("div"); n.className = "commit";
+    n.innerHTML = `No targets set yet. Add one per venture in the <b>targets</b> table and it appears here.`;
+    list.appendChild(n);
+  }
+}
+
+function vnoteCard(vid, editing){
+  const p = state.byId[vid], n = state.notes[vid];
+  const el = document.createElement("div"); el.className = "vnote";
+  if (editing){
+    el.innerHTML = `<div class="vh">${NOTEICON}<span>${esc(shortName(p))} note</span></div>
+      <textarea id="vnedit">${esc(n ? n.body : "")}</textarea>
+      <div class="va"><button class="sv" data-act="vnsave" data-id="${vid}">Save</button>
+      <button class="cn" data-act="vncancel">Cancel</button></div>`;
+  } else {
+    el.innerHTML = `<div class="vh">${NOTEICON}<span>${esc(shortName(p))} note</span>
+        <button data-act="vnedit" data-id="${vid}">${n && n.body ? "Edit" : "Add a note"}</button></div>
+      ${n && n.body ? `<div class="vt">${esc(n.body)}</div>
+        <div class="vf">${esc(person(n.updated_by).name)} · ${esc(ago(n.updated_at))} ago</div>`
+        : `<div class="note" style="margin:0">Standing context for this venture — what the other person needs to know before they touch it.</div>`}`;
+  }
+  return el;
+}
+
+/* ===========================================================================
+   Sheets
+   =========================================================================== */
+function openSheet(html){
+  const s = $("sheet");
+  s.innerHTML = `<button class="close" data-act="closesheet" aria-label="Close">&times;</button>` + html;
+  s.classList.add("show"); $("scrim").classList.add("show");
+}
+function closeSheet(){ $("sheet").classList.remove("show"); $("scrim").classList.remove("show"); state.sheet = null; }
+
+async function sheetTask(id){
+  const t = state.tasks.find(x => x.id === id); if (!t) return;
+  state.sheet = { type:"task", id };
+  const p = state.byId[t.project_id] || {}; const d = dueLabel(t.due);
+  const subs = state.subs[id] || [];
+  const done = subs.filter(s => s.done).length;
+
+  const { data: cmts } = await sb.from("task_comments").select("*").eq("task_id", id).order("created_at");
+  state.cmtCount[id] = (cmts || []).length;
+
+  openSheet(`
+    <h3>${esc(t.title)}</h3>
+    <div class="sub" style="border:none;padding:0 0 12px;display:flex;gap:7px;flex-wrap:wrap">
+      <span class="tag v" style="background:${p.color}">${esc(p.name || "")}</span>
+      <span class="tag pri-${t.priority}">${PRI_LABEL[t.priority] || "Med"}</span>
+      ${t.recurrence_id ? `<span class="tag rec">${RECICON}Repeats</span>` : ""}
+      ${d ? `<span class="tag ${d.cls === "over" ? "pri-high" : ""}">${d.txt}</span>` : ""}
+    </div>
+    ${t.note ? `<div class="note" style="margin-bottom:13px">${esc(t.note)}</div>` : ""}
+
+    <div class="sec" style="margin-top:0"><span>Checklist</span><span class="n">${done}/${subs.length}</span><span class="rule"></span></div>
+    ${subs.length ? subs.map(s => `<div class="sub ${s.done ? "on" : ""}">
+        <button class="cb" data-act="subtog" data-id="${s.id}" data-task="${id}" aria-label="Toggle step">
+          <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"></path></svg></button>
+        <span class="st">${esc(s.title)}</span></div>`).join("")
+      : `<div class="note" style="padding:8px 0">No steps yet.</div>`}
+    <div class="addsub">
+      <input id="newsub" type="text" placeholder="Add a step…" autocomplete="off" />
+      <button data-act="subadd" data-id="${id}">Add</button>
+    </div>
+
+    <div class="sec"><span>Notes</span><span class="n">${(cmts || []).length}</span><span class="rule"></span></div>
+    ${(cmts || []).length ? `<div class="thread">${cmts.map(c => `
+      <div class="cmt ${c.author === state.uid ? "mine" : ""}">
+        ${avatar(c.author)}
+        <div class="bub">
+          <div class="hd"><span class="who">${esc(person(c.author).name)}</span><span class="when">${esc(ago(c.created_at))} ago</span></div>
+          <div class="tx">${esc(c.body)}</div>
+        </div></div>`).join("")}</div>`
+      : `<div class="note" style="padding:6px 0">No notes yet.</div>`}
+    <div class="cbox">
+      <textarea id="newcmt" placeholder="Leave a note…"></textarea>
+      <button data-act="cmtadd" data-id="${id}">Send</button>
+    </div>
+
+    <div class="sec"><span>Edit</span><span class="rule"></span></div>
+    <div class="field"><label>Title</label><input id="e-title" value="${esc(t.title)}" /></div>
+    <div class="field"><label>Note</label><textarea id="e-note">${esc(t.note || "")}</textarea></div>
+    <div class="field"><label>Venture</label><select id="e-project">${
+      state.projects.map(x => `<option value="${x.id}" ${x.id === t.project_id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></div>
+    <div class="field"><label>Priority</label><select id="e-pri">${
+      ["high","med","low"].map(x => `<option value="${x}" ${x === t.priority ? "selected" : ""}>${PRI_LABEL[x]}</option>`).join("")}</select></div>
+    <div class="field"><label>Person</label><select id="e-contact"><option value="">—</option>${
+      state.contacts.filter(c => c.project_id === t.project_id)
+        .map(c => `<option value="${c.id}" ${c.id === t.contact_id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></div>
+    <div class="field"><label>Due</label><input id="e-due" type="date" value="${t.due || ""}" /></div>
+    <div class="actions">
+      <button class="save" data-act="save" data-id="${id}">Save</button>
+      <button class="del" data-act="del" data-id="${id}">Delete</button>
+    </div>`);
+
+  const si = $("newsub");
+  if (si) si.addEventListener("keydown", e => { if (e.key === "Enter") document.querySelector('[data-act="subadd"]').click(); });
+}
+
+function sheetPeople(){
+  state.sheet = { type:"people" };
+  const rows = state.contacts.map(c => {
+    const p = state.byId[c.project_id] || { color:"#8C846F", name:"" };
+    const openN = state.tasks.filter(t => t.contact_id === c.id && isOpen(t)).length;
+    return `<div class="row">
+      <div class="avatar" style="background:${p.color}">${esc(c.name.split(" ").map(w => w[0]).slice(0,2).join(""))}</div>
+      <div class="grow"><div class="nm">${esc(c.name)}</div>
+        <div class="rl">${esc([c.role, p.name].filter(Boolean).join(" · "))}</div></div>
+      ${openN ? `<span class="mini" style="background:${p.color}">${openN} open</span>` : ""}
+    </div>`; }).join("");
+  openSheet(`<h3>People</h3><div class="sub">Clients, partners and prospects.</div>` +
+    (rows || `<div class="note">No contacts yet. Add rows to the <b>contacts</b> table and they show up here.</div>`));
+}
+
+function sheetAgent(){
+  state.sheet = { type:"agent" };
+  const total = state.projects.reduce((a, p) => a + (state.settings[p.id]?.agent_on !== false ? (state.settings[p.id]?.max_tasks ?? 3) : 0), 0);
+  openSheet(`<h3>Daily agent</h3>
+    <div class="sub">Runs 6:00am. Changes take effect on the next run — no deploy.</div>` +
+    state.projects.map(p => {
+      const s = state.settings[p.id] || { agent_on:true, max_tasks:3 };
+      const on = s.agent_on !== false, cap = s.max_tasks ?? 3;
+      return `<div class="row">
+        <span class="cdot" style="background:${p.color};width:9px;height:9px"></span>
+        <div class="grow"><div class="nm">${esc(p.name)}</div>
+          <div class="rl">${on ? `up to ${cap} suggestion${cap > 1 ? "s" : ""} a day` : "paused"}</div></div>
+        <div class="stepper">
+          <button data-act="cap" data-id="${p.id}" data-d="-1" ${!on || cap <= 1 ? "disabled" : ""}>−</button>
+          <span>${cap}</span>
+          <button data-act="cap" data-id="${p.id}" data-d="1" ${!on || cap >= 6 ? "disabled" : ""}>+</button>
+        </div>
+        <button class="tog ${on ? "on" : ""}" data-act="agenton" data-id="${p.id}" aria-label="Toggle"><i></i></button>
+      </div>`; }).join("") +
+    `<div class="note" style="padding-top:13px">Ceiling: <b class="mono">${total}</b> suggestions a day.</div>`);
+}
+
+function sheetRecurring(){
+  state.sheet = { type:"recurring" };
+  const rows = state.recur.map(r => {
+    const p = state.byId[r.project_id] || { color:"#8C846F" };
+    return `<div class="row">
+      <span class="cdot" style="background:${p.color};width:9px;height:9px"></span>
+      <div class="grow"><div class="nm">${esc(r.title)}</div>
+        <div class="rl">${esc(ruleLabel(r.rule))} · next ${esc(r.next_due)}${r.active ? "" : " · paused"}</div></div>
+      <button class="tog ${r.active ? "on" : ""}" data-act="recon" data-id="${r.id}" aria-label="Toggle"><i></i></button>
+    </div>`; }).join("");
+  openSheet(`<h3>Recurring</h3><div class="sub">Generated automatically instead of retyped.</div>` +
+    (rows || `<div class="note">Nothing recurring yet. Add rows to the <b>recurrences</b> table — rules are <code>daily</code>, <code>weekly:0-6</code> (0 = Sunday) or <code>monthly:1-28</code>.</div>`));
+}
+
+const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+function ruleLabel(rule){
+  if (rule === "daily") return "Every day";
+  const w = /^weekly:([0-6])$/.exec(rule); if (w) return "Every " + DAYS[+w[1]];
+  const m = /^monthly:(\d{1,2})$/.exec(rule); if (m) return `Day ${m[1]} of the month`;
+  return rule;
+}
+
+async function sheetActivity(){
+  state.sheet = { type:"activity" };
+  const seen = state.seenAt;
+  const KIND = {
+    comment: a => `left a note`,
+    note:    a => `updated the <b>${esc(state.byId[a.project_id]?.name || "")}</b> note`,
+    done:    a => `finished a task`,
+    added:   a => `added a task`,
+    job:     a => `ran a job`,
+  };
+  openSheet(`<h3>Activity</h3><div class="sub">What happened while you were away.</div>` +
+    (state.activity.length ? state.activity.map(a => {
+      const p = state.byId[a.project_id] || { color:"#8C846F", id:"", name:"" };
+      const unread = a.actor !== state.uid && (!seen || a.created_at > seen);
+      return `<div class="act ${unread ? "unread" : ""}">
+        ${avatar(a.actor)}
+        <div class="grow">
+          <div class="ln"><b>${esc(person(a.actor).name)}</b> ${(KIND[a.kind] || (() => a.kind))(a)}</div>
+          ${a.summary ? `<div class="ln qt">“${esc(a.summary)}”</div>` : ""}
+          <div class="mt">${p.id ? `<span class="tag v" style="background:${p.color}">${esc(shortName(p))}</span>` : ""}
+            <span class="tm">${esc(ago(a.created_at))} ago</span></div>
+        </div></div>`; }).join("")
+      : `<div class="note">Nothing yet.</div>`));
+
+  const now = new Date().toISOString();
+  await sb.from("activity_reads").upsert({ user_id: state.uid, seen_at: now });
+  state.seenAt = now;
+  renderChrome();
+}
+
+/* ===========================================================================
+   Render
+   =========================================================================== */
+function renderChrome(){
+  const u = unreadCount();
+  $("belldot").textContent = u; $("belldot").hidden = u === 0;
+  const sug = state.tasks.filter(t => t.status === "suggested").length;
+  $("inbox-badge").textContent = sug;
+  $("inbox-badge").classList.toggle("zero", sug === 0);
+}
+
+function renderDevice(){
+  const live = state.devices.filter(d => d.last_seen && (Date.now() - new Date(d.last_seen).getTime()) < 120000);
+  $("devdot").classList.toggle("up", live.length > 0);
+  $("devtext").textContent = live.length ? (live[0].label || live[0].id) : "worker offline";
+}
+
+function renderVentures(){
+  const pool = state.view === "inbox"
+    ? state.tasks.filter(t => t.status === "suggested")
+    : state.tasks.filter(isOpen);
+  const counts = {};
+  for (const t of pool) if (matchQ(t)) counts[t.project_id] = (counts[t.project_id] || 0) + 1;
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+
+  let html = `<button class="chip ${state.venture === "all" ? "active" : ""}" data-v="all" ${
+    state.venture === "all" ? 'style="background:#211D17"' : ""}>All<span class="ccount">${total}</span></button>`;
+  for (const p of state.projects){
+    const c = counts[p.id] || 0, a = state.venture === p.id;
+    html += `<button class="chip ${a ? "active" : ""}${!a && c === 0 ? " dim" : ""}" data-v="${p.id}" ${
+      a ? `style="background:${p.color}"` : ""}>${a ? "" : `<span class="cdot" style="background:${p.color}"></span>`}${
+      esc(shortName(p))}<span class="ccount">${c}</span></button>`;
+  }
+  const bar = $("ventures"); bar.innerHTML = html;
+  bar.querySelectorAll(".chip").forEach(c => c.addEventListener("click", () => {
+    const v = c.dataset.v;
+    state.venture = (v !== "all" && state.venture === v) ? "all" : v;
+    state.editNote = null; renderList();
+  }));
+}
+
+function renderList(){
+  document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("active", b.dataset.view === state.view));
+  renderChrome(); renderDevice(); renderVentures();
+  const list = $("list"); list.innerHTML = "";
+  if (state.view === "today") viewToday(list);
+  else if (state.view === "board") viewBoard(list);
+  else if (state.view === "inbox") viewInbox(list);
+  else viewPulse(list);
+}
+
+async function render(){
+  const signedIn = !!state.session;
+  $("signin").hidden = signedIn;
+  $("app").hidden = !signedIn;
+  $("quickbar").hidden = !signedIn;
+  if (!signedIn){ teardownRealtime(); return; }
+
+  const me = $("me"); const em = state.session.user.email || "";
+  me.textContent = em.slice(0,2).toUpperCase(); me.title = em;
+
+  if (!state.loaded) await loadAll();
+  setupRealtime();
+  renderList();
+}
+
+function fillProjectSelect(){
+  $("qa-project").innerHTML = state.projects.map(p => `<option value="${p.id}">${esc(shortName(p))}</option>`).join("");
+}
+
+/* ===========================================================================
+   Actions
+   =========================================================================== */
+async function patchTask(id, patch){
+  const i = state.tasks.findIndex(t => t.id === id);
+  if (i !== -1) state.tasks[i] = { ...state.tasks[i], ...patch };   // optimistic
+  renderList();
+  const { error } = await sb.from("tasks").update(patch).eq("id", id);
+  if (error){ toast("Save failed: " + error.message); state.loaded = false; await loadAll(); renderList(); }
+}
+
+async function logActivity(project_id, kind, task_id, summary){
+  await sb.from("activity").insert({ project_id, kind, task_id, summary: summary || "" });
+}
+
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-act]"); if (!btn) return;
+  const act = btn.dataset.act, id = btn.dataset.id;
+
+  if (act === "closesheet") return closeSheet();
+
+  if (act === "toggle"){
+    const t = state.tasks.find(x => x.id === id); if (!t) return;
+    const next = t.status === "done" ? "todo" : "done";
+    await patchTask(id, { status: next });
+    if (next === "done") await logActivity(t.project_id, "done", id, t.title);
+    return toast(next === "done" ? "Done" : "Reopened");
+  }
+  if (act === "start"){
+    const t = state.tasks.find(x => x.id === id); if (!t) return;
+    const next = t.status === "doing" ? "todo" : "doing";
+    await patchTask(id, { status: next });
+    return toast(next === "doing" ? "Committed to today" : "Removed from today");
+  }
+  if (act === "open") return sheetTask(id);
+
+  if (act === "subtog"){
+    const tid = btn.dataset.task;
+    const s = (state.subs[tid] || []).find(x => x.id === id); if (!s) return;
+    s.done = !s.done;
+    await sb.from("subtasks").update({ done: s.done }).eq("id", id);
+    sheetTask(tid); return renderList();
+  }
+  if (act === "subadd"){
+    const v = $("newsub").value.trim(); if (!v) return;
+    const sort = (state.subs[id] || []).length;
+    const { data, error } = await sb.from("subtasks").insert({ task_id: id, title: v, sort }).select().single();
+    if (error) return toast("Could not add step: " + error.message);
+    (state.subs[id] ||= []).push(data);
+    sheetTask(id); renderList(); return toast("Step added");
+  }
+  if (act === "cmtadd"){
+    const v = $("newcmt").value.trim(); if (!v) return;
+    const { error } = await sb.from("task_comments").insert({ task_id: id, body: v });
+    if (error) return toast("Could not post: " + error.message);
+    state.cmtCount[id] = (state.cmtCount[id] || 0) + 1;
+    sheetTask(id); renderList(); return toast("Note added");
+  }
+
+  if (act === "save"){
+    const patch = {
+      title: $("e-title").value.trim(),
+      note: $("e-note").value.trim(),
+      project_id: $("e-project").value,
+      priority: $("e-pri").value,
+      contact_id: $("e-contact").value || null,
+      due: $("e-due").value || null,
+    };
+    if (!patch.title) return toast("Title can't be empty");
+    await patchTask(id, patch); closeSheet(); return toast("Saved");
+  }
+  if (act === "del"){
+    if (!confirm("Delete this task? Its checklist and notes go with it.")) return;
+    const { error } = await sb.from("tasks").delete().eq("id", id);
+    if (error) return toast("Delete failed: " + error.message);
+    state.tasks = state.tasks.filter(t => t.id !== id);
+    closeSheet(); renderList(); return toast("Deleted");
+  }
+
+  if (act === "vnedit"){ state.editNote = id; closeSheet(); return renderList(); }
+  if (act === "vncancel"){ state.editNote = null; return renderList(); }
+  if (act === "vnsave"){
+    const body = $("vnedit").value.trim();
+    const { error } = await sb.from("venture_notes")
+      .upsert({ project_id: id, body, updated_by: state.uid }, { onConflict: "project_id" });
+    if (error) return toast("Could not save note: " + error.message);
+    state.notes[id] = { project_id: id, body, updated_by: state.uid, updated_at: new Date().toISOString() };
+    state.editNote = null;
+    await logActivity(id, "note", null, "Updated the venture note");
+    renderList(); return toast("Note saved");
+  }
+
+  if (act === "agenton"){
+    const cur = state.settings[id] || { agent_on:true, max_tasks:3 };
+    const on = !(cur.agent_on !== false);
+    const { error } = await sb.from("venture_settings")
+      .upsert({ project_id: id, agent_on: on, max_tasks: cur.max_tasks ?? 3, updated_by: state.uid }, { onConflict: "project_id" });
+    if (error) return toast("Could not save: " + error.message);
+    state.settings[id] = { ...cur, agent_on: on };
+    sheetAgent(); return toast(on ? "Resumed" : "Paused");
+  }
+  if (act === "cap"){
+    const cur = state.settings[id] || { agent_on:true, max_tasks:3 };
+    const cap = Math.max(1, Math.min(6, (cur.max_tasks ?? 3) + Number(btn.dataset.d)));
+    const { error } = await sb.from("venture_settings")
+      .upsert({ project_id: id, agent_on: cur.agent_on !== false, max_tasks: cap, updated_by: state.uid }, { onConflict: "project_id" });
+    if (error) return toast("Could not save: " + error.message);
+    state.settings[id] = { ...cur, max_tasks: cap };
+    return sheetAgent();
+  }
+  if (act === "recon"){
+    const r = state.recur.find(x => x.id === id); if (!r) return;
+    r.active = !r.active;
+    const { error } = await sb.from("recurrences").update({ active: r.active }).eq("id", id);
+    if (error){ r.active = !r.active; return toast("Could not save: " + error.message); }
+    sheetRecurring(); return toast(r.active ? "Resumed" : "Paused");
+  }
+
+  if (act === "runagent"){
+    btn.disabled = true; btn.textContent = "Queued…";
+    const { error } = await sb.from("jobs").insert({ kind: "agent.run", project_id: id });
+    if (error){ btn.disabled = false; btn.textContent = "Run agent"; return toast("Could not queue: " + error.message); }
+    toast("Queued — the worker picks it up in a second");
+    setTimeout(() => { btn.disabled = false; btn.textContent = "Run agent"; }, 4000);
+    return;
+  }
+
+  if (act === "sel"){ state.sel.has(id) ? state.sel.delete(id) : state.sel.add(id); return renderList(); }
+  if (act === "selall"){ state.tasks.filter(t => t.status === "suggested" && matchV(t) && matchQ(t)).forEach(t => state.sel.add(t.id)); return renderList(); }
+  if (act === "acc")   return accept([id], false);
+  if (act === "accdo") return accept([id], true);
+  if (act === "dis"){
+    const { error } = await sb.from("tasks").delete().eq("id", id);
+    if (error) return toast("Could not dismiss: " + error.message);
+    state.tasks = state.tasks.filter(t => t.id !== id);
+    renderList(); return toast("Dismissed");
+  }
+  if (act === "bacc") return accept([...state.sel], false);
+  if (act === "bdis"){
+    const ids = [...state.sel];
+    const { error } = await sb.from("tasks").delete().in("id", ids);
+    if (error) return toast("Could not dismiss: " + error.message);
+    state.tasks = state.tasks.filter(t => !ids.includes(t.id));
+    state.sel.clear(); renderList(); return toast(`${ids.length} dismissed`);
+  }
+});
+
+async function accept(ids, commit){
+  if (!ids.length) return;
+  const { error } = await sb.from("tasks").update({ status: commit ? "doing" : "todo" }).in("id", ids);
+  if (error) return toast("Could not accept: " + error.message);
+  for (const id of ids){
+    const i = state.tasks.findIndex(t => t.id === id);
+    if (i !== -1) state.tasks[i].status = commit ? "doing" : "todo";
+  }
+  state.sel.clear(); renderList();
+  toast(commit ? `Accepted — ${ids.length} in Today` : `${ids.length} accepted`);
+}
+
+/* ---------- chrome wiring ---------- */
+document.querySelectorAll("nav.tabs button").forEach(b =>
+  b.addEventListener("click", () => { state.view = b.dataset.view; state.sel.clear(); state.editNote = null; renderList(); }));
+
+$("searchbtn").addEventListener("click", () => {
+  state.searchOpen = !state.searchOpen;
+  $("searchwrap").hidden = !state.searchOpen;
+  $("searchbtn").classList.toggle("on", state.searchOpen);
+  if (state.searchOpen) $("search").focus(); else { state.q = ""; $("search").value = ""; renderList(); }
+});
+$("search").addEventListener("input", e => { state.q = e.target.value.trim(); renderList(); });
+$("bellbtn").addEventListener("click", sheetActivity);
+$("menubtn").addEventListener("click", sheetPeople);
+$("scrim").addEventListener("click", closeSheet);
+document.querySelectorAll("[data-panel]").forEach(b => b.addEventListener("click", () => {
+  const p = b.dataset.panel;
+  if (p === "people") sheetPeople(); else if (p === "agent") sheetAgent(); else sheetRecurring();
+}));
+
+$("qa-title").addEventListener("input", e => { $("qa-add").disabled = !e.target.value.trim(); });
+$("qa-add").addEventListener("click", async () => {
+  const title = $("qa-title").value.trim(); if (!title) return;
+  const project_id = $("qa-project").value;
+  const { data, error } = await sb.from("tasks")
+    .insert({ project_id, title, priority: "med", status: "todo", source: "manual" }).select().single();
+  if (error) return toast("Could not add: " + error.message);
+  state.tasks.push(data);
+  $("qa-title").value = ""; $("qa-add").disabled = true;
+  renderList(); toast("Added");
+});
+$("qa-title").addEventListener("keydown", e => { if (e.key === "Enter") $("qa-add").click(); });
+
+setInterval(renderDevice, 30000);
+boot();
+</script>
+</body>
+</html>
