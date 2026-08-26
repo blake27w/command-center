@@ -114,7 +114,7 @@ const HANDLERS = {
   'device.ping':      handlePing,
   'digest.send':      () => runDigest(sb, { log: (m) => log('info', m), force: true }),
   'recurrence.spawn': handleRecurrenceSpawn,
-  'agent.run':        (job) => runWorkload('agent.run', job, agentArgs(job)),
+  'agent.run':        (job) => runWorkload('agent.run', job, () => agentArgs(job)),
   'alpha.collect':    (job) => runWorkload('alpha.collect', job),
   'scout.collect':    (job) => runWorkload('scout.collect', job),
   'edge.grade':       (job) => runWorkload('edge.grade', job),
@@ -139,7 +139,12 @@ async function runWorkload(kind, job, extraArgsFn) {
   const w = WORKLOADS[kind];
   if (!w) throw new Error(`no workload configured for "${kind}" — add it to workloads.json on this machine`);
 
-  const extra = typeof extraArgsFn === 'function' ? await extraArgsFn(job) : (extraArgsFn || []);
+  // Accepts a function, a promise, an array, or nothing. Awaiting unconditionally
+  // is what stops a caller handing us a promise and getting "extra is not
+  // iterable" three lines later — which is exactly what happened once.
+  const raw   = typeof extraArgsFn === 'function' ? extraArgsFn(job) : extraArgsFn;
+  const extra = (await raw) ?? [];
+  if (!Array.isArray(extra)) throw new Error(`workload ${kind}: extra args must be an array, got ${typeof extra}`);
   const argv  = [...w.argv, ...extra];
   const cwd   = w.cwd ? resolve(w.cwd.replace(/^~/, process.env.HOME)) : HERE;
   const limit = int(w.timeout_seconds, 900) * 1000;
